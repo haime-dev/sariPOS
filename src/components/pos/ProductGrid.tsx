@@ -40,7 +40,7 @@ export default function ProductGrid() {
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`flex flex-col items-center justify-center min-w-[100px] py-3 rounded-[2rem] transition-all ${
+            className={`flex-shrink-0 flex flex-col items-center justify-center min-w-[100px] px-4 py-3 rounded-[2rem] transition-all whitespace-nowrap ${
               activeCategory === cat 
                 ? 'bg-white border-2 border-primary-500 shadow-sm text-primary-600' 
                 : 'bg-white/60 border-2 border-transparent text-gray-500 hover:bg-white/80'

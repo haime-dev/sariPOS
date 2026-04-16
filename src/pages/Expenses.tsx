@@ -40,6 +40,14 @@ export default function Expenses() {
   // Dashboard Graph & Download State
   const [datePeriod, setDatePeriod] = useState('Monthly');
   const [showGraph, setShowGraph] = useState(true);
+  const [customStartDate, setCustomStartDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30);
+    return d.toISOString().split('T')[0];
+  });
+  const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showAverageFor, setShowAverageFor] = useState<string | null>(null);
+  const [showBreakdownModal, setShowBreakdownModal] = useState<string | null>(null);
+
 
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [downloadType, setDownloadType] = useState<'All' | 'Custom'>('All');
@@ -75,15 +83,43 @@ export default function Expenses() {
     init();
   }, [fetchExpenses, cleanupOrphanedExpenses]);
 
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const totalNonStoreExpense = expenses.reduce((sum, e) => sum + (e.category !== 'Store Use' ? e.amount : 0), 0);
-
-  // Generate dynamic chart data based on expenses
-  const { start: periodStart, end: periodEnd } = getDateRange(datePeriod);
+  let periodStart = new Date();
+  let periodEnd = new Date();
+  if (datePeriod === 'Custom') {
+    periodStart = new Date(customStartDate);
+    periodStart.setHours(0,0,0,0);
+    periodEnd = new Date(customEndDate);
+    periodEnd.setHours(23,59,59,999);
+  } else {
+    const range = getDateRange(datePeriod);
+    periodStart = range.start;
+    periodEnd = range.end;
+  }
+  
   const chartExpenses = expenses.filter(e => {
     const d = new Date(e.date);
     return d >= periodStart && d <= periodEnd;
   });
+
+  const totalExpenses = chartExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalNonStoreExpense = chartExpenses.reduce((sum, e) => sum + (e.category !== 'Store Use' ? e.amount : 0), 0);
+
+  // Average calculations
+  let avgDivisor = 1;
+  let avgLabel = "day";
+  let earliestStatDate = new Date();
+  if (chartExpenses.length > 0) {
+     earliestStatDate = new Date(Math.min(...chartExpenses.map(e => new Date(e.date).getTime())));
+  }
+  const daysDiffStat = Math.ceil((new Date().getTime() - earliestStatDate.getTime()) / (1000 * 60 * 60 * 24));
+  if (datePeriod === 'Weekly') { avgDivisor = Math.ceil(daysDiffStat / 7); avgLabel = "week"; }
+  else if (datePeriod === 'Monthly') { avgDivisor = Math.ceil(daysDiffStat / 30.44); avgLabel = "month"; }
+  else if (datePeriod === 'All Time') { avgDivisor = Math.ceil(daysDiffStat / 365.25); avgLabel = "year"; }
+  else { avgDivisor = daysDiffStat; avgLabel = "day"; }
+  if (avgDivisor < 1) avgDivisor = 1;
+
+  const totalExpensesAvg = totalExpenses / avgDivisor;
+  const totalNonStoreAvg = totalNonStoreExpense / avgDivisor;
 
   const chartDataMap = new Map<string, number>();
   if (datePeriod === 'Daily') {
@@ -136,6 +172,30 @@ export default function Expenses() {
       const yearStr = new Date(e.date).getFullYear().toString();
       if (chartDataMap.has(yearStr)) chartDataMap.set(yearStr, chartDataMap.get(yearStr)! + e.amount);
     });
+  } else if (datePeriod === 'Custom') {
+    const daysDiff = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff <= 31) {
+      for (let i = 0; i <= daysDiff; i++) {
+        const d = new Date(periodStart); d.setDate(d.getDate() + i);
+        const dayLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        chartDataMap.set(dayLabel, 0);
+      }
+      chartExpenses.forEach(e => {
+        const dayLabel = new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        if (chartDataMap.has(dayLabel)) chartDataMap.set(dayLabel, chartDataMap.get(dayLabel)! + e.amount);
+      });
+    } else {
+      const diffMonths = (periodEnd.getFullYear() - periodStart.getFullYear()) * 12 + (periodEnd.getMonth() - periodStart.getMonth());
+      for (let i = 0; i <= diffMonths; i++) {
+        const d = new Date(periodStart); d.setDate(1); d.setMonth(d.getMonth() + i);
+        const monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        chartDataMap.set(monthLabel, 0);
+      }
+      chartExpenses.forEach(e => {
+        const monthLabel = new Date(e.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        if (chartDataMap.has(monthLabel)) chartDataMap.set(monthLabel, chartDataMap.get(monthLabel)! + e.amount);
+      });
+    }
   }
   
   const chartData = Array.from(chartDataMap).map(([name, total]) => ({ name, total }));
@@ -180,6 +240,40 @@ export default function Expenses() {
     document.body.removeChild(link);
     setShowDownloadModal(false);
   };
+  
+  const expenseMap = new Map<string, any>();
+  const firstExpenseDates = new Map<string, Date>();
+
+  expenses.forEach(e => {
+     const d = new Date(e.date);
+     const existingD = firstExpenseDates.get(e.description);
+     if (!existingD || d < existingD) firstExpenseDates.set(e.description, d);
+     
+     if (!expenseMap.has(e.description)) {
+         expenseMap.set(e.description, {
+            description: e.description,
+            category: e.category,
+            amount: e.amount,
+            avgExpense: 0,
+         });
+     } else {
+         const curr = expenseMap.get(e.description);
+         curr.amount += e.amount;
+     }
+  });
+
+  const nowTime = new Date().getTime();
+  const topExpensesList = Array.from(expenseMap.values()).map(e => {
+     const firstD = firstExpenseDates.get(e.description);
+     let days = 1;
+     if (firstD) {
+        days = Math.ceil((nowTime - firstD.getTime()) / (1000 * 60 * 60 * 24));
+        if (days < 1) days = 1;
+     }
+     e.avgExpense = e.amount / days;
+     return e;
+  }).sort((a,b) => b.amount - a.amount);
+
 
   const { start: tablePeriodStart, end: tablePeriodEnd } = getDateRange(tablePeriod);
   const filteredTableExpenses = expenses.filter(e => {
@@ -236,7 +330,7 @@ export default function Expenses() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex bg-white rounded-2xl p-1 shadow-sm border border-gray-100 whitespace-nowrap overflow-x-auto hide-scrollbar">
-            {['Daily', 'Weekly', 'Monthly', 'All Time'].map((period) => (
+            {['Daily', 'Weekly', 'Monthly', 'All Time', 'Custom'].map((period) => (
               <button
                 key={period}
                 onClick={() => setDatePeriod(period)}
@@ -288,8 +382,17 @@ export default function Expenses() {
                 <span className="w-2 h-2 rounded-full bg-primary-500"></span>
                 Expense Graph
               </h3>
-              <div className="px-4 py-2 border border-gray-100 rounded-xl text-sm bg-gray-50 text-gray-600 font-medium">
-                {datePeriod} Expense Amount
+              <div className="flex items-center gap-2">
+                <div className="px-4 py-2 border border-gray-100 rounded-xl text-sm bg-gray-50 text-gray-600 font-medium">
+                  {datePeriod === 'Custom' ? 'Custom Amount' : `${datePeriod} Expense Amount`}
+                </div>
+                {datePeriod === 'Custom' && (
+                  <div className="flex items-center gap-2">
+                     <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-100" />
+                     <span className="text-gray-400 text-sm">to</span>
+                     <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-100" />
+                  </div>
+                )}
               </div>
             </div>
             
@@ -319,22 +422,122 @@ export default function Expenses() {
         
         {/* Stat Cards Column */}
         <div className={`flex flex-col gap-4 ${showGraph ? 'lg:col-span-1' : 'w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2'}`}>
-          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
+          <div 
+            className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md hover:border-primary-100 transition-all relative group"
+            onClick={() => setShowBreakdownModal('Total Expense')}
+          >
             <div>
-              <p className="text-sm text-gray-500 mb-1">Total Expenses</p>
+              <p className="text-sm text-gray-500 mb-1 group-hover:text-primary-600 transition-colors">Total Expenses</p>
               <h3 className="text-3xl font-bold text-gray-900">{formatPHP(totalExpenses)}</h3>
             </div>
-            <div className="w-12 h-12 bg-danger/10 text-danger rounded-2xl flex items-center justify-center">
-              <Wallet className="w-6 h-6" />
+            <div className="flex flex-col items-center">
+              <div 
+                className="w-12 h-12 bg-danger/10 text-danger rounded-2xl flex items-center justify-center cursor-pointer hover:bg-danger/20 transition-colors mb-1"
+                onClick={(e) => { e.stopPropagation(); setShowAverageFor(showAverageFor === 'Total Expenses' ? null : 'Total Expenses'); }}
+                title="Click for Average"
+              >
+                <Wallet className="w-6 h-6" />
+              </div>
             </div>
+            
+            <AnimatePresence>
+              {showAverageFor === 'Total Expenses' && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="absolute left-0 right-0 -bottom-24 bg-white rounded-2xl border border-primary-100 p-4 shadow-xl z-50 cursor-default"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                   <p className="text-xs text-gray-500 font-bold tracking-widest uppercase text-center mb-2">
+                     Average
+                   </p>
+                   <p className="text-base md:text-lg text-primary-700 font-bold text-center bg-primary-50 py-2.5 rounded-xl">
+                     {formatPHP(totalExpensesAvg)} / {avgLabel}
+                   </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
+          <div 
+            className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center justify-between cursor-pointer hover:shadow-md hover:border-primary-100 transition-all relative group"
+            onClick={() => setShowBreakdownModal('Total Non-Store Expense')}
+          >
             <div>
-              <p className="text-sm text-gray-500 mb-1">Total Non-Store Expense</p>
+              <p className="text-sm text-gray-500 mb-1 group-hover:text-primary-600 transition-colors">Total Non-Store Expense</p>
               <h3 className="text-3xl font-bold text-gray-900">{formatPHP(totalNonStoreExpense)}</h3>
             </div>
-            <div className="w-12 h-12 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center">
-              <Wallet className="w-6 h-6" />
+            <div className="flex flex-col items-center">
+              <div 
+                className="w-12 h-12 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center cursor-pointer hover:bg-orange-500/20 transition-colors mb-1"
+                onClick={(e) => { e.stopPropagation(); setShowAverageFor(showAverageFor === 'Total Non-Store Expense' ? null : 'Total Non-Store Expense'); }}
+                title="Click for Average"
+              >
+                <Wallet className="w-6 h-6" />
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {showAverageFor === 'Total Non-Store Expense' && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="absolute left-0 right-0 -bottom-24 bg-white rounded-2xl border border-primary-100 p-4 shadow-xl z-50 cursor-default"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                   <p className="text-xs text-gray-500 font-bold tracking-widest uppercase text-center mb-2">
+                     Average
+                   </p>
+                   <p className="text-base md:text-lg text-primary-700 font-bold text-center bg-primary-50 py-2.5 rounded-xl">
+                     {formatPHP(totalNonStoreAvg)} / {avgLabel}
+                   </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+
+      {/* Top Expenses by Description Grid */}
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+        <h3 className="text-lg flex items-center gap-2 mb-6">
+          <span className="w-2 h-2 rounded-full bg-primary-500"></span>
+          Top Expenses
+        </h3>
+        
+        <div className="w-full overflow-x-auto hide-scrollbar">
+          <div className="min-w-[600px]">
+            <div className="grid grid-cols-12 gap-2 items-center text-xs text-gray-400 mb-4 px-2">
+              <span className="col-span-4 text-left font-medium">Description</span>
+              <span className="col-span-3 text-left font-medium">Category</span>
+              <span className="col-span-2 text-right font-medium">Total Amount</span>
+              <span className="col-span-3 text-right font-medium">Avg Expense / Day</span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-2 max-h-[350px] pr-1">
+              {topExpensesList.length > 0 ? topExpensesList.slice(0, 20).map((expense, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-3 rounded-2xl border border-transparent hover:bg-gray-50/50 hover:shadow-sm transition-all group">
+                  <div className="col-span-4 text-left font-medium text-gray-900 truncate" title={expense.description}>
+                    {expense.description}
+                  </div>
+                  <div className="col-span-3 text-left">
+                    <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-[11px] sm:text-xs">
+                      {expense.category}
+                    </span>
+                  </div>
+                  <div className="col-span-2 text-right font-bold text-danger truncate">
+                    {formatPHP(expense.amount)}
+                  </div>
+                  <div className="col-span-3 text-right font-bold text-orange-500 truncate">
+                    {formatPHP(expense.avgExpense)}/d
+                  </div>
+                </div>
+              )) : (
+                <div className="h-full flex flex-col items-center justify-center text-gray-400 text-sm py-12">
+                  No expenses recorded yet.
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -627,6 +830,80 @@ export default function Expenses() {
                 >
                   Download
                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      
+      {/* Expense Breakdown Modal */}
+      <AnimatePresence>
+        {showBreakdownModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+              onClick={() => setShowBreakdownModal(null)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2rem] p-6 w-full max-w-2xl relative z-10 shadow-xl overflow-hidden flex flex-col max-h-[80vh]"
+            >
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">{showBreakdownModal} Breakdown</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-gray-500 tracking-wider uppercase font-bold">Average:</span>
+                    <span className="text-sm font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-md">
+                      {formatPHP(showBreakdownModal === 'Total Expense' ? totalExpensesAvg : totalNonStoreAvg)} / {avgLabel}
+                    </span>
+                  </div>
+                </div>
+                <button onClick={() => setShowBreakdownModal(null)} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors self-start mt-1">
+                  <CloseCircle className="w-6 h-6 text-gray-500" />
+                </button>
+              </div>
+              
+              <div className="overflow-y-auto pr-2 hide-scrollbar">
+                {(() => {
+                  const filtered = chartExpenses.filter(e => showBreakdownModal === 'Total Non-Store Expense' ? e.category !== 'Store Use' : true);
+                  const categories = Array.from(new Set(filtered.map(e => e.category)));
+                  
+                  return categories.length > 0 ? categories.map(cat => {
+                    const catExpenses = filtered.filter(e => e.category === cat);
+                    const catTotal = catExpenses.reduce((sum, e) => sum + e.amount, 0);
+                    
+                    // Group by description
+                    const descMap = new Map<string, number>();
+                    catExpenses.forEach(e => {
+                      descMap.set(e.description, (descMap.get(e.description) || 0) + e.amount);
+                    });
+                    const descList = Array.from(descMap).sort((a, b) => b[1] - a[1]);
+                    
+                    return (
+                      <div key={cat} className="mb-6 last:mb-0">
+                        <div className="flex justify-between items-center mb-3">
+                          <h4 className="font-bold text-gray-800 text-lg">{cat}</h4>
+                          <span className="font-bold text-primary-600">{formatPHP(catTotal)}</span>
+                        </div>
+                        <div className="space-y-2">
+                          {descList.map(([desc, amt]) => (
+                            <div key={desc} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+                              <span className="text-gray-700 font-medium">{desc}</span>
+                              <span className="text-gray-900 font-bold">{formatPHP(amt)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <div className="text-center py-8 text-gray-500">No expenses recorded for this period.</div>
+                  );
+                })()}
               </div>
             </motion.div>
           </div>

@@ -3,7 +3,7 @@ import { Product } from './useCartStore';
 import { supabase } from '../lib/supabase';
 
 export interface InventoryItem extends Product {
-  sku: string;
+
   status: 'In Stock' | 'Low Stock' | 'Out of Stock';
 }
 

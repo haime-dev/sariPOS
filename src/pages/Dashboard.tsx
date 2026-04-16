@@ -137,6 +137,7 @@ const getChartDataForProduct = (productId: string, transactions: any[], period: 
 export default function Dashboard() {
   const [datePeriod, setDatePeriod] = useState('Monthly');
   const [showGraph, setShowGraph] = useState(true);
+  const [showAverageFor, setShowAverageFor] = useState<string | null>(null);
 
   // Top Selling Products Search & Metrics
   const [productSearch, setProductSearch] = useState('');
@@ -445,6 +446,22 @@ export default function Dashboard() {
   const prevTotalNonStoreExpense = previousStatCardExpenses.reduce((sum, e) => sum + e.amount, 0);
   const prevValueOfBusiness = prevNetProfit - prevTotalNonStoreExpense;
 
+  // Average calculations
+  let avgDivisor = 1;
+  let avgLabel = "day";
+  let earliestStatDate = new Date();
+  if (dashboardTransactions.length > 0) {
+    earliestStatDate = new Date(Math.min(...dashboardTransactions.map(t => new Date(t.date).getTime())));
+  }
+  const daysDiffStat = Math.ceil((new Date().getTime() - earliestStatDate.getTime()) / (1000 * 60 * 60 * 24));
+  let calculatedDivisor = daysDiffStat;
+  if (datePeriod === 'Weekly') { calculatedDivisor = Math.ceil(daysDiffStat / 7); avgLabel = "week"; }
+  else if (datePeriod === 'Monthly') { calculatedDivisor = Math.ceil(daysDiffStat / 30.44); avgLabel = "month"; }
+  else if (datePeriod === 'All Time') { calculatedDivisor = Math.ceil(daysDiffStat / 365.25); avgLabel = "year"; }
+  else { avgLabel = "day"; }
+  avgDivisor = Math.max(1, calculatedDivisor);
+  const totalSalesAvg = totalSales / avgDivisor;
+
   const salesGrowth = calculateGrowth(totalSales, prevTotalSales);
   const capitalGrowth = calculateGrowth(totalCapital, prevTotalCapital);
   const profitGrowth = calculateGrowth(netProfit, prevNetProfit);
@@ -561,6 +578,7 @@ export default function Dashboard() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       className="flex flex-col gap-6 max-w-7xl mx-auto pb-8"
+      onClick={() => setShowAverageFor(null)}
     >
       
       {/* Top Action Bar */}
@@ -651,6 +669,10 @@ export default function Dashboard() {
           percentage={`${Math.abs(salesGrowth.percentage).toFixed(1)}%`} 
           isPositive={salesGrowth.isPositive} 
           icon={<ChartSquare className="w-5 h-5 text-primary-500" />} 
+          onAverageClick={() => setShowAverageFor(showAverageFor === 'Total Sales' ? null : 'Total Sales')}
+          showAverage={showAverageFor === 'Total Sales'}
+          averageValue={formatPHP(totalSalesAvg)}
+          averageLabel={avgLabel}
         />
         <StatCard 
           isSmall
@@ -1408,23 +1430,34 @@ export default function Dashboard() {
   );
 }
 
-function StatCard({ title, value, unit, growth, percentage, isPositive, icon, isSmall = false }: any) {
+function StatCard({ title, value, unit, growth, percentage, isPositive, icon, isSmall = false, onAverageClick, showAverage, averageValue, averageLabel }: any) {
   const isNegativeValue = typeof value === 'string' && value.includes('-');
 
   return (
-    <div className={`bg-white rounded-3xl ${isSmall ? 'p-4' : 'p-6'} shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow cursor-default h-full`}>
+    <div className={`bg-white rounded-3xl ${isSmall ? 'p-4' : 'p-6'} shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow cursor-default h-full relative group`}>
       <div className={`flex items-start justify-between ${isSmall ? 'mb-2' : 'mb-4'}`}>
         <div className={`flex items-center gap-3`}>
           <span className="text-gray-400">{icon}</span>
           {!isSmall && <h4 className="text-gray-600 text-sm font-medium">{title}</h4>}
         </div>
         
-        {/* Growth Bubble */}
+        {/* Growth Bubble and possible popover trigger */}
         <div className="flex flex-col items-end gap-1">
-          <span className={`flex items-center gap-0.5 ${isPositive ? 'text-success' : 'text-danger'} ${isSmall ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-1'} font-medium bg-${isPositive ? 'green' : 'red'}-50 rounded-lg`}>
-            {isPositive ? <GraphUp className={isSmall ? "w-2.5 h-2.5" : "w-3 h-3"} /> : <GraphDown className={isSmall ? "w-2.5 h-2.5" : "w-3 h-3"} />}
-            {percentage}
-          </span>
+          <div className="flex items-center gap-2">
+            {onAverageClick && (
+              <div 
+                className="w-6 h-6 bg-primary-50 text-primary-600 rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary-100 transition-colors"
+                onClick={(e) => { e.stopPropagation(); onAverageClick(); }}
+                title="Click for Average"
+              >
+                <div style={{ transform: "scale(0.6)" }}><CalendarIcon /></div>
+              </div>
+            )}
+            <span className={`flex items-center gap-0.5 ${isPositive ? 'text-success' : 'text-danger'} ${isSmall ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-1'} font-medium bg-${isPositive ? 'green' : 'red'}-50 rounded-lg`}>
+              {isPositive ? <GraphUp className={isSmall ? "w-2.5 h-2.5" : "w-3 h-3"} /> : <GraphDown className={isSmall ? "w-2.5 h-2.5" : "w-3 h-3"} />}
+              {percentage}
+            </span>
+          </div>
           {!isSmall && <span className={`text-[10px] font-medium ${isPositive ? 'text-success' : 'text-danger'}`}>{isPositive ? '+' : ''}{growth}</span>}
         </div>
       </div>
@@ -1437,6 +1470,37 @@ function StatCard({ title, value, unit, growth, percentage, isPositive, icon, is
         </span>
         {unit && <span className={`${isSmall ? 'text-[10px]' : 'text-sm'} text-gray-400 font-medium`}>{unit}</span>}
       </div>
+
+      <AnimatePresence>
+        {showAverage && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className={`absolute left-0 right-0 ${isSmall ? '-bottom-20' : '-bottom-24'} bg-white rounded-2xl border border-primary-100 p-4 shadow-xl z-50 cursor-default`}
+            onClick={(e) => e.stopPropagation()}
+          >
+             <p className="text-xs text-gray-500 font-bold tracking-widest uppercase text-center mb-2">
+               Average
+             </p>
+             <p className={`${isSmall ? 'text-sm' : 'text-base md:text-lg'} text-primary-700 font-bold text-center bg-primary-50 py-2.5 rounded-xl`}>
+               {averageValue} / {averageLabel}
+             </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+// Minimal calendar icon for the button
+function CalendarIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+      <line x1="16" y1="2" x2="16" y2="6"></line>
+      <line x1="8" y1="2" x2="8" y2="6"></line>
+      <line x1="3" y1="10" x2="21" y2="10"></line>
+    </svg>
   );
 }

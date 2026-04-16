@@ -7,6 +7,8 @@ import { formatPHP } from '../utils/currency';
 
 const categories = ['Beverages', 'Breads', 'Cakes', 'Donuts', 'Pastries', 'Sandwich'];
 
+import { getProbableWebImage } from '../utils/getWebImage';
+
 export default function Inventory() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -21,11 +23,32 @@ export default function Inventory() {
     fetchItems();
   }, [fetchItems]);
 
+  useEffect(() => {
+    const autoAssignImages = async () => {
+      const defaultUnsplash = "https://images.unsplash.com/photo-1549903072-7e6e0b3c2242";
+      for (const item of inventory) {
+        if (!item.image || item.image.includes(defaultUnsplash)) {
+          const newImage = await getProbableWebImage(item.name);
+          if (newImage && newImage !== item.image) {
+            await updateItem(item.id, { ...item, image: newImage });
+          }
+        }
+      }
+    };
+    
+    // Only run this auto-assignment once to prevent infinite loops
+    if (inventory.length > 0 && !localStorage.getItem('v1_images_assigned')) {
+      autoAssignImages().then(() => {
+        localStorage.setItem('v1_images_assigned', 'true');
+      });
+    }
+  }, [inventory, updateItem]);
+
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const [newItem, setNewItem] = useState<{
     name: string;
-    sku: string;
+
     category: string;
     price: string | number;
     originalPrice: string | number;
@@ -34,7 +57,7 @@ export default function Inventory() {
     image: string;
   }>({
     name: '',
-    sku: '',
+
     category: 'Breads',
     price: '',
     originalPrice: '',
@@ -44,8 +67,7 @@ export default function Inventory() {
   });
 
   const filteredInventory = inventory.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase()) || 
-                          item.sku.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = categoryFilter === 'All' ? true : item.category === categoryFilter;
     const matchesStatus = statusFilter === 'All' ? true : item.status === statusFilter;
     
@@ -84,7 +106,7 @@ export default function Inventory() {
     setEditingItemId(null);
     setNewItem({
       name: '',
-      sku: '',
+
       category: 'Breads',
       price: '',
       originalPrice: '',
@@ -98,7 +120,7 @@ export default function Inventory() {
     setEditingItemId(item.id);
     setNewItem({
       name: item.name,
-      sku: item.sku,
+
       category: item.category,
       price: item.price,
       originalPrice: item.original_price || item.originalPrice || '',
@@ -114,7 +136,7 @@ export default function Inventory() {
     setEditingItemId(null);
     setNewItem({
       name: '',
-      sku: '',
+
       category: 'Breads',
       price: '',
       originalPrice: '',
@@ -187,7 +209,7 @@ export default function Inventory() {
             <Magnifer className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input 
               type="text" 
-              placeholder="Search products by name or SKU..."
+              placeholder="Search products by name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-11 pr-4 py-2.5 bg-white rounded-xl border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300 transition-all text-sm"
@@ -222,7 +244,7 @@ export default function Inventory() {
             <thead className="sticky top-0 bg-white/95 backdrop-blur-sm shadow-sm z-10">
               <tr>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Product</th>
-                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">SKU</th>
+
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Category</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Orig. Price</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Selling Price</th>
@@ -242,7 +264,7 @@ export default function Inventory() {
                       <span className="font-medium text-gray-900">{item.name}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{item.sku}</td>
+
                   <td className="px-6 py-4">
                     <span className="text-xs px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg font-medium">
                       {item.category}
@@ -354,16 +376,7 @@ export default function Inventory() {
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={newItem.sku}
-                      onChange={(e) => setNewItem({...newItem, sku: e.target.value})}
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300"
-                    />
-                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                     <select 
