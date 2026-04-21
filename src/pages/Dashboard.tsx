@@ -487,7 +487,6 @@ export default function Dashboard() {
   const totalSalesAvg = totalSales / divisor;
   const netProfitAvg = netProfit / divisor;
   const valueOfBusinessAvg = valueOfBusiness / divisor;
-  const usedCapitalAvg = totalCapital / divisor;
 
   const salesGrowth = calculateGrowth(totalSales, prevTotalSales);
   const capitalGrowth = calculateGrowth(totalCapital, prevTotalCapital);
@@ -671,7 +670,7 @@ export default function Dashboard() {
         >
           {isAlertMinimized ? (
             <>
-              <DangerTriangle className="w-5 h-5 text-red-600" variant="Bold" />
+              <DangerTriangle className="w-5 h-5 text-red-600" />
               <span className="text-red-700 font-bold text-sm tracking-wide">
                 {lowStockAlerts.length} items low on stock
               </span>
@@ -683,7 +682,7 @@ export default function Dashboard() {
               </div>
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-2 text-red-700 font-extrabold mb-1">
-                  <DangerTriangle className="w-7 h-7" variant="Bold" />
+                  <DangerTriangle className="w-7 h-7" />
                   <h3 className="text-xl font-outfit">Critical Stock Alert</h3>
                 </div>
                 <span className="text-xs font-semibold text-red-500 px-3 py-1 bg-white rounded-lg border border-red-100">Click to minimize</span>
