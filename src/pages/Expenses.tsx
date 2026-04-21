@@ -40,6 +40,7 @@ export default function Expenses() {
   // Dashboard Graph & Download State
   const [datePeriod, setDatePeriod] = useState('Monthly');
   const [showGraph, setShowGraph] = useState(true);
+  const [graphMetric, setGraphMetric] = useState<'Total' | 'Non-Store'>('Total');
   const [customStartDate, setCustomStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 30);
     return d.toISOString().split('T')[0];
@@ -121,6 +122,8 @@ export default function Expenses() {
   const totalExpensesAvg = totalExpenses / avgDivisor;
   const totalNonStoreAvg = totalNonStoreExpense / avgDivisor;
 
+  const graphTargetExpenses = graphMetric === 'Non-Store' ? chartExpenses.filter(e => e.category !== 'Store Use') : chartExpenses;
+
   const chartDataMap = new Map<string, number>();
   if (datePeriod === 'Daily') {
     for (let i = 6; i >= 0; i--) {
@@ -129,7 +132,7 @@ export default function Expenses() {
       const dayLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       chartDataMap.set(dayLabel, 0);
     }
-    chartExpenses.forEach(e => {
+    graphTargetExpenses.forEach(e => {
       const dayLabel = new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       if (chartDataMap.has(dayLabel)) chartDataMap.set(dayLabel, chartDataMap.get(dayLabel)! + e.amount);
     });
@@ -147,7 +150,7 @@ export default function Expenses() {
       weekLabels.push({ label, start, end });
       chartDataMap.set(label, 0);
     }
-    chartExpenses.forEach(e => {
+    graphTargetExpenses.forEach(e => {
       const d = new Date(e.date);
       const week = weekLabels.find(w => d >= w.start && d <= w.end);
       if (week && chartDataMap.has(week.label)) chartDataMap.set(week.label, chartDataMap.get(week.label)! + e.amount);
@@ -160,7 +163,7 @@ export default function Expenses() {
       const monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
       chartDataMap.set(monthLabel, 0);
     }
-    chartExpenses.forEach(e => {
+    graphTargetExpenses.forEach(e => {
       const monthLabel = new Date(e.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
       if (chartDataMap.has(monthLabel)) chartDataMap.set(monthLabel, chartDataMap.get(monthLabel)! + e.amount);
     });
@@ -168,7 +171,7 @@ export default function Expenses() {
     const years = Array.from(new Set(chartExpenses.map(e => new Date(e.date).getFullYear()))).sort();
     if (years.length === 0) years.push(new Date().getFullYear());
     years.forEach(year => chartDataMap.set(year.toString(), 0));
-    chartExpenses.forEach(e => {
+    graphTargetExpenses.forEach(e => {
       const yearStr = new Date(e.date).getFullYear().toString();
       if (chartDataMap.has(yearStr)) chartDataMap.set(yearStr, chartDataMap.get(yearStr)! + e.amount);
     });
@@ -180,7 +183,7 @@ export default function Expenses() {
         const dayLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         chartDataMap.set(dayLabel, 0);
       }
-      chartExpenses.forEach(e => {
+      graphTargetExpenses.forEach(e => {
         const dayLabel = new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         if (chartDataMap.has(dayLabel)) chartDataMap.set(dayLabel, chartDataMap.get(dayLabel)! + e.amount);
       });
@@ -191,7 +194,7 @@ export default function Expenses() {
         const monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
         chartDataMap.set(monthLabel, 0);
       }
-      chartExpenses.forEach(e => {
+      graphTargetExpenses.forEach(e => {
         const monthLabel = new Date(e.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
         if (chartDataMap.has(monthLabel)) chartDataMap.set(monthLabel, chartDataMap.get(monthLabel)! + e.amount);
       });
@@ -378,13 +381,13 @@ export default function Expenses() {
         {showGraph && (
           <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col">
             <div className="flex items-center justify-between mb-8">
-              <h3 className="text-lg flex items-center gap-2">
+              <h3 className="text-lg flex items-center gap-2 flex-grow">
                 <span className="w-2 h-2 rounded-full bg-primary-500"></span>
                 Expense Graph
               </h3>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <div className="px-4 py-2 border border-gray-100 rounded-xl text-sm bg-gray-50 text-gray-600 font-medium">
-                  {datePeriod === 'Custom' ? 'Custom Amount' : `${datePeriod} Expense Amount`}
+                  {datePeriod === 'Custom' ? 'Custom Amount' : `${datePeriod}`}
                 </div>
                 {datePeriod === 'Custom' && (
                   <div className="flex items-center gap-2">
@@ -393,6 +396,14 @@ export default function Expenses() {
                      <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="px-3 py-2 border border-gray-200 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-100" />
                   </div>
                 )}
+                <select 
+                  value={graphMetric}
+                  onChange={(e) => setGraphMetric(e.target.value as any)}
+                  className="px-4 py-2 border border-gray-200 rounded-xl text-sm bg-white text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-primary-100 cursor-pointer shadow-sm hover:bg-gray-50 transition-colors"
+                >
+                  <option value="Total">Total Expense</option>
+                  <option value="Non-Store">Non-Store Expense</option>
+                </select>
               </div>
             </div>
             

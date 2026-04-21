@@ -372,7 +372,11 @@ export default function Inventory() {
                       type="text" 
                       required
                       value={newItem.name}
-                      onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                      onChange={(e) => {
+                        const words = e.target.value.split(' ');
+                        const capitalized = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        setNewItem({...newItem, name: capitalized});
+                      }}
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-100 focus:border-primary-300"
                     />
                   </div>

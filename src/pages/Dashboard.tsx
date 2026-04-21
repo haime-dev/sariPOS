@@ -138,6 +138,7 @@ export default function Dashboard() {
   const [datePeriod, setDatePeriod] = useState('Monthly');
   const [showGraph, setShowGraph] = useState(true);
   const [showAverageFor, setShowAverageFor] = useState<string | null>(null);
+  const [graphMetric, setGraphMetric] = useState<'Sales' | 'Net Profit' | 'Value of Business' | 'Used Capital' | 'Profit Margin'>('Sales');
 
   // Top Selling Products Search & Metrics
   const [productSearch, setProductSearch] = useState('');
@@ -334,97 +335,111 @@ export default function Dashboard() {
   const totalNonStoreExpense = statCardExpenses.reduce((sum, e) => sum + e.amount, 0);
   const valueOfBusiness = netProfit - totalNonStoreExpense;
 
-  // Generate dynamic chart data based on dashboard transactions
-  const chartDataMap = new Map<string, number>();
+  // Generate dynamic chart data based on dashboard transactions and expenses
+  const chartDataMap = new Map<string, { Sales: number; 'Net Profit': number; 'Value of Business': number; 'Used Capital': number; 'Profit Margin': number }>();
+  const createEmptyBin = () => ({ Sales: 0, 'Net Profit': 0, 'Value of Business': 0, 'Used Capital': 0, 'Profit Margin': 0 });
+  const weekLabels: { label: string, start: Date, end: Date }[] = [];
   
   if (datePeriod === 'Daily') {
-    // For Daily, aggregate by Day for the last 7 days
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dayLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      chartDataMap.set(dayLabel, 0);
+      chartDataMap.set(dayLabel, createEmptyBin());
     }
-    dashboardTransactions.forEach(t => {
-      const dayLabel = new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      if (chartDataMap.has(dayLabel)) {
-        chartDataMap.set(dayLabel, chartDataMap.get(dayLabel)! + t.amount_paid);
-      }
-    });
   } else if (datePeriod === 'Weekly') {
-    // For Weekly, aggregate by Week for the last 4 weeks. Display the actual start to end dates
-    const weekLabels: { label: string, start: Date, end: Date }[] = [];
     const now = new Date();
     now.setHours(23, 59, 59, 999);
-    
-    // Generate ranges from oldest to newest
     for (let i = 3; i >= 0; i--) {
       const start = new Date(now);
       start.setDate(now.getDate() - (i * 7) - 6);
       start.setHours(0, 0, 0, 0);
-      
       const end = new Date(now);
       end.setDate(now.getDate() - (i * 7));
-      
       const label = `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
       weekLabels.push({ label, start, end });
-      chartDataMap.set(label, 0);
+      chartDataMap.set(label, createEmptyBin());
     }
-    
-    dashboardTransactions.forEach(t => {
-      const d = new Date(t.date);
-      // Find the appropriate week bin
-      const week = weekLabels.find(w => d >= w.start && d <= w.end);
-      if (week && chartDataMap.has(week.label)) {
-        chartDataMap.set(week.label, chartDataMap.get(week.label)! + t.amount_paid);
-      }
-    });
   } else if (datePeriod === 'Monthly') {
-    // For Monthly, aggregate by Month for the last 12 months, and display the Year too for clarity
     for (let i = 11; i >= 0; i--) {
       const d = new Date();
-      d.setDate(1); // Set to 1st to avoid month skipping on 31st > 30th
+      d.setDate(1); 
       d.setMonth(d.getMonth() - i);
       const monthLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      chartDataMap.set(monthLabel, 0);
+      chartDataMap.set(monthLabel, createEmptyBin());
     }
-    dashboardTransactions.forEach(t => {
-      const monthLabel = new Date(t.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      if (chartDataMap.has(monthLabel)) {
-        chartDataMap.set(monthLabel, chartDataMap.get(monthLabel)! + t.amount_paid);
-      }
-    });
   } else if (datePeriod === 'All Time') {
-    // For All Time, we can aggregate by Year
     const years = Array.from(new Set(dashboardTransactions.map(t => new Date(t.date).getFullYear()))).sort();
-    // Ensure we have at least the current year if empty
     if (years.length === 0) years.push(new Date().getFullYear());
-    
     years.forEach(year => {
-      chartDataMap.set(year.toString(), 0);
-    });
-    dashboardTransactions.forEach(t => {
-      const yearStr = new Date(t.date).getFullYear().toString();
-      if (chartDataMap.has(yearStr)) {
-        chartDataMap.set(yearStr, chartDataMap.get(yearStr)! + t.amount_paid);
-      }
+      chartDataMap.set(year.toString(), createEmptyBin());
     });
   }
-  
-  // Convert map to array. Natively sorted chronologically due to our ordered initialization loops.
-  const chartData = Array.from(chartDataMap).map(([name, total]) => ({ name, total }));
-  const graphTotalSales = chartData.reduce((sum, data) => sum + data.total, 0);
-  const graphAmountLabel = datePeriod === 'Daily' ? '7-day sales' : datePeriod === 'Weekly' ? '30-day sales' : datePeriod === 'Monthly' ? 'Sales for the Year' : 'All Time Sales';
+
+  // Aggregate transactions
+  dashboardTransactions.forEach(t => {
+    let binLabel = null;
+    const d = new Date(t.date);
+    if (datePeriod === 'Daily') binLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    else if (datePeriod === 'Weekly') {
+      const week = weekLabels.find(w => d >= w.start && d <= w.end);
+      if (week) binLabel = week.label;
+    } else if (datePeriod === 'Monthly') {
+      binLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    } else if (datePeriod === 'All Time') {
+      binLabel = d.getFullYear().toString();
+    }
+
+    if (binLabel && chartDataMap.has(binLabel)) {
+      const bin = chartDataMap.get(binLabel)!;
+      const sales = t.amount_paid;
+      const capital = t.items.reduce((s, item) => s + (item.product.original_price_at_time ?? item.product.original_price ?? 0) * item.quantity, 0);
+      const profit = sales - capital;
+      
+      bin.Sales += sales;
+      bin['Used Capital'] += capital;
+      bin['Net Profit'] += profit;
+      bin['Value of Business'] += profit;
+    }
+  });
+
+  // Distribute expenses into bins for Value of Business
+  statCardExpenses.forEach(e => {
+    if (e.category === 'Store Use') return;
+    let binLabel = null;
+    const d = new Date(e.date);
+    if (datePeriod === 'Daily') binLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    else if (datePeriod === 'Weekly') {
+      const week = weekLabels.find(w => d >= w.start && d <= w.end);
+      if (week) binLabel = week.label;
+    } else if (datePeriod === 'Monthly') {
+      binLabel = d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    } else if (datePeriod === 'All Time') {
+      binLabel = d.getFullYear().toString();
+    }
+    
+    if (binLabel && chartDataMap.has(binLabel)) {
+      const bin = chartDataMap.get(binLabel)!;
+      bin['Value of Business'] -= e.amount;
+    }
+  });
+
+  chartDataMap.forEach(bin => {
+    bin['Profit Margin'] = bin['Used Capital'] > 0 ? (bin['Net Profit'] / bin['Used Capital']) * 100 : 0;
+  });
+
+  const chartDataRaw = Array.from(chartDataMap).map(([name, data]) => ({ name, ...data }));
+  const chartData = chartDataRaw.map(data => ({ name: data.name, total: data[graphMetric] }));
+  const graphAmountLabel = datePeriod === 'Daily' ? `7-day ${graphMetric}` : datePeriod === 'Weekly' ? `30-day ${graphMetric}` : datePeriod === 'Monthly' ? `${graphMetric} for the Year` : `All Time ${graphMetric}`;
 
   const { start: prevPeriodStart, end: prevPeriodEnd } = getPreviousDateRange(datePeriod, periodStart);
   const previousDashboardTransactions = transactions.filter(t => {
     const d = new Date(t.date);
     return d >= prevPeriodStart && d <= prevPeriodEnd;
   });
-  const previousGraphTotalSales = previousDashboardTransactions.reduce((sum, t) => sum + t.amount_paid, 0);
 
   // Compute previous metrics for stat cards
-  const prevTotalSales = previousGraphTotalSales;
+  const prevTotalSales = previousDashboardTransactions.reduce((sum, t) => sum + t.amount_paid, 0);
   const prevTotalUnpaidAmount = previousDashboardTransactions.reduce((sum, t) => sum + (t.total - t.amount_paid), 0);
   const prevTotalOrders = previousDashboardTransactions.length;
   const prevTotalCapital = previousDashboardTransactions.reduce((sum, t) => {
@@ -446,21 +461,32 @@ export default function Dashboard() {
   const prevTotalNonStoreExpense = previousStatCardExpenses.reduce((sum, e) => sum + e.amount, 0);
   const prevValueOfBusiness = prevNetProfit - prevTotalNonStoreExpense;
 
-  // Average calculations
-  let avgDivisor = 1;
-  let avgLabel = "day";
-  let earliestStatDate = new Date();
-  if (dashboardTransactions.length > 0) {
-    earliestStatDate = new Date(Math.min(...dashboardTransactions.map(t => new Date(t.date).getTime())));
+  let absoluteEarliestDate = new Date();
+  if (transactions.length > 0) {
+    absoluteEarliestDate = new Date(Math.min(...transactions.map(t => new Date(t.date).getTime())));
   }
-  const daysDiffStat = Math.ceil((new Date().getTime() - earliestStatDate.getTime()) / (1000 * 60 * 60 * 24));
-  let calculatedDivisor = daysDiffStat;
-  if (datePeriod === 'Weekly') { calculatedDivisor = Math.ceil(daysDiffStat / 7); avgLabel = "week"; }
-  else if (datePeriod === 'Monthly') { calculatedDivisor = Math.ceil(daysDiffStat / 30.44); avgLabel = "month"; }
-  else if (datePeriod === 'All Time') { calculatedDivisor = Math.ceil(daysDiffStat / 365.25); avgLabel = "year"; }
-  else { avgLabel = "day"; }
-  avgDivisor = Math.max(1, calculatedDivisor);
-  const totalSalesAvg = totalSales / avgDivisor;
+  const absoluteDaysSinceFirstItem = Math.max(1, Math.ceil((new Date().getTime() - absoluteEarliestDate.getTime()) / (1000 * 60 * 60 * 24)));
+  
+  let divisor = 1;
+  let avgLabel = "";
+  if (datePeriod === 'Daily') {
+    divisor = 7;
+    avgLabel = "day (this period)";
+  } else if (datePeriod === 'Weekly') {
+    divisor = 4;
+    avgLabel = "week (this period)";
+  } else if (datePeriod === 'Monthly') {
+    divisor = 12;
+    avgLabel = "month (this period)";
+  } else if (datePeriod === 'All Time') {
+    divisor = absoluteDaysSinceFirstItem;
+    avgLabel = "day (all time)";
+  }
+  
+  const totalSalesAvg = totalSales / divisor;
+  const netProfitAvg = netProfit / divisor;
+  const valueOfBusinessAvg = valueOfBusiness / divisor;
+  const usedCapitalAvg = totalCapital / divisor;
 
   const salesGrowth = calculateGrowth(totalSales, prevTotalSales);
   const capitalGrowth = calculateGrowth(totalCapital, prevTotalCapital);
@@ -474,23 +500,56 @@ export default function Dashboard() {
   const prevProfitMargin = prevTotalCapital > 0 ? Math.round((prevNetProfit / prevTotalCapital) * 100) : 0;
   const profitMarginGrowth = calculateGrowth(profitMargin, prevProfitMargin);
 
-  const growthAmount = graphTotalSales - previousGraphTotalSales;
+  const availableCash = valueOfBusiness + totalCapital;
+  const prevAvailableCash = prevValueOfBusiness + prevTotalCapital;
+  const availableCashAvg = availableCash / divisor;
+  const availableCashGrowth = calculateGrowth(availableCash, prevAvailableCash);
+
+  const previousGraphTotalValue = 
+    graphMetric === 'Sales' ? prevTotalSales :
+    graphMetric === 'Net Profit' ? prevNetProfit :
+    graphMetric === 'Value of Business' ? prevValueOfBusiness :
+    graphMetric === 'Used Capital' ? prevTotalCapital :
+    graphMetric === 'Profit Margin' ? prevProfitMargin : 0;
+
+  const currentGraphTotalValue = 
+    graphMetric === 'Sales' ? totalSales :
+    graphMetric === 'Net Profit' ? netProfit :
+    graphMetric === 'Value of Business' ? valueOfBusiness :
+    graphMetric === 'Used Capital' ? totalCapital :
+    graphMetric === 'Profit Margin' ? profitMargin : 0;
+
+  const growthAmount = currentGraphTotalValue - previousGraphTotalValue;
   const isPositiveGrowth = growthAmount >= 0;
 
   let growthPercentage = 0;
-  if (previousGraphTotalSales > 0) {
-    growthPercentage = ((graphTotalSales - previousGraphTotalSales) / previousGraphTotalSales) * 100;
-  } else if (graphTotalSales > 0) {
+  if (previousGraphTotalValue > 0) {
+    growthPercentage = ((currentGraphTotalValue - previousGraphTotalValue) / previousGraphTotalValue) * 100;
+  } else if (currentGraphTotalValue > 0) {
     growthPercentage = 100;
   }
+
+  const formatGraphValue = (val: number) => graphMetric === 'Profit Margin' ? `${val.toFixed(1)}%` : formatPHP(val);
 
   // Fill empty states if needed
   if (chartData.length === 0) {
     chartData.push({ name: 'No Data', total: 0 });
   }
 
+  // Compute first sold dates globally to calculate average profit properly
+  const firstSoldDates = new Map<string, Date>();
+  transactions.forEach(t => {
+    const tDate = new Date(t.date);
+    t.items.forEach((item: any) => {
+      const pid = item.product.id;
+      if (!firstSoldDates.has(pid) || tDate < firstSoldDates.get(pid)!) {
+        firstSoldDates.set(pid, tDate);
+      }
+    });
+  });
+
   // Generate favorite products from dashboard transactions
-  const productMap = new Map<string, { id: string, name: string, category: string, orders: number, sales: number, profit: number, image: string }>();
+  const productMap = new Map<string, { id: string, name: string, category: string, orders: number, sales: number, profit: number, avgProfit: number, image: string }>();
   dashboardTransactions.forEach(t => {
     t.items.forEach(item => {
       const existing = productMap.get(item.product.id);
@@ -521,13 +580,21 @@ export default function Dashboard() {
           orders: item.quantity,
           sales: itemSales,
           profit: itemProfit,
+          avgProfit: 0,
           image: item.product.image || 'https://images.unsplash.com/photo-1549903072-7e6e0b3c2242?auto=format&fit=crop&q=80&w=100&h=100'
         });
       }
     });
   });
   
-  const dynamicFavoriteProducts = Array.from(productMap.values()).sort((a, b) => b.sales - a.sales);
+  // Calculate average profit per product
+  Array.from(productMap.values()).forEach(product => {
+    const firstSold = firstSoldDates.get(product.id) || new Date();
+    const daysSince = Math.max(1, Math.ceil((new Date().getTime() - firstSold.getTime()) / (1000 * 60 * 60 * 24)));
+    product.avgProfit = product.profit / daysSince;
+  });
+
+  const dynamicFavoriteProducts = Array.from(productMap.values()).sort((a, b) => b.profit - a.profit);
   const filteredProducts = dynamicFavoriteProducts.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()));
 
   const executeDownload = () => {
@@ -628,7 +695,21 @@ export default function Dashboard() {
       </div>
 
       {/* Stat Cards - Top Highlighted Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
+        <StatCard 
+          title="Available Cash" 
+          value={formatPHP(availableCash)} 
+          unit="" 
+          growth={formatPHP(Math.abs(availableCashGrowth.amount))} 
+          percentage={`${Math.abs(availableCashGrowth.percentage).toFixed(1)}%`} 
+          isPositive={availableCashGrowth.isPositive} 
+          icon={<WadOfMoney className="w-8 h-8 text-emerald-500" />} 
+          onClick={() => setShowAverageFor(showAverageFor === 'Available Cash' ? null : 'Available Cash')}
+          showAverage={showAverageFor === 'Available Cash'}
+          averageValue={formatPHP(availableCashAvg)}
+          averageLabel={avgLabel}
+          description="The sum of Value of Business and Used Capital. Represents total theoretical cash value if business was liquidated."
+        />
         <StatCard 
           title="Value of Business" 
           value={formatPHP(valueOfBusiness)} 
@@ -637,6 +718,11 @@ export default function Dashboard() {
           percentage={`${Math.abs(valueOfBusinessGrowth.percentage).toFixed(1)}%`} 
           isPositive={valueOfBusinessGrowth.isPositive} 
           icon={<WadOfMoney className="w-8 h-8 text-indigo-500" />} 
+          onClick={() => setShowAverageFor(showAverageFor === 'Value of Business' ? null : 'Value of Business')}
+          showAverage={showAverageFor === 'Value of Business'}
+          averageValue={formatPHP(valueOfBusinessAvg)}
+          averageLabel={avgLabel}
+          description="Net Profit minus Non-Store Expenses. Shows how much money remains after paying for external costs."
         />
         <StatCard 
           title="Net Profit" 
@@ -646,6 +732,11 @@ export default function Dashboard() {
           percentage={`${Math.abs(profitGrowth.percentage).toFixed(1)}%`} 
           isPositive={profitGrowth.isPositive} 
           icon={<WadOfMoney className="w-8 h-8 text-success" />} 
+          onClick={() => setShowAverageFor(showAverageFor === 'Net Profit' ? null : 'Net Profit')}
+          showAverage={showAverageFor === 'Net Profit'}
+          averageValue={formatPHP(netProfitAvg)}
+          averageLabel={avgLabel}
+          description="Total Sales minus the Cost of Goods Sold. Tells you exactly how much actual money you've made."
         />
         <StatCard 
           title="Profit Margin" 
@@ -655,6 +746,11 @@ export default function Dashboard() {
           percentage={`${Math.abs(profitMarginGrowth.percentage).toFixed(1)}%`} 
           isPositive={profitMarginGrowth.isPositive} 
           icon={<GraphUp className="w-8 h-8 text-purple-500" />} 
+          onClick={() => setShowAverageFor(showAverageFor === 'Profit Margin' ? null : 'Profit Margin')}
+          showAverage={showAverageFor === 'Profit Margin'}
+          averageValue={`${profitMargin}%`}
+          averageLabel="overall (this period)"
+          description="The percentage of Net Profit generated from the Used Capital. Measures how efficiently your capital is generating profit."
         />
       </div>
 
@@ -669,10 +765,11 @@ export default function Dashboard() {
           percentage={`${Math.abs(salesGrowth.percentage).toFixed(1)}%`} 
           isPositive={salesGrowth.isPositive} 
           icon={<ChartSquare className="w-5 h-5 text-primary-500" />} 
-          onAverageClick={() => setShowAverageFor(showAverageFor === 'Total Sales' ? null : 'Total Sales')}
+          onClick={() => setShowAverageFor(showAverageFor === 'Total Sales' ? null : 'Total Sales')}
           showAverage={showAverageFor === 'Total Sales'}
           averageValue={formatPHP(totalSalesAvg)}
           averageLabel={avgLabel}
+          description="The total amount of money collected from all items sold before any costs or expenses are deducted."
         />
         <StatCard 
           isSmall
@@ -726,20 +823,32 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Main Content Grid */}
-      <div className={`grid grid-cols-1 ${showGraph ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
+      {/* Main Content Sections */}
+      <div className="flex flex-col gap-6">
         
         {/* Chart Section */}
         {showGraph && (
-        <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-lg flex items-center gap-2">
+        <div className="w-full bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col">
+          <div className="flex items-center justify-start gap-4 mb-8">
+            <h3 className="text-lg flex items-center gap-2 flex-grow">
               <span className="w-2 h-2 rounded-full bg-primary-500"></span>
-              Sales Graph
+              Performance Graph
             </h3>
+            
             <div className="px-4 py-2 border border-gray-100 rounded-xl text-sm bg-gray-50 text-gray-600 font-medium">
-              {datePeriod} Sales Amount
+              {datePeriod}
             </div>
+
+            <select 
+              value={graphMetric}
+              onChange={(e) => setGraphMetric(e.target.value as any)}
+              className="px-4 py-2 border border-gray-200 rounded-xl text-sm bg-white text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-primary-100 cursor-pointer shadow-sm hover:bg-gray-50 transition-colors"
+            >
+              <option value="Sales">Sales Amount</option>
+              <option value="Net Profit">Net Profit</option>
+              <option value="Profit Margin">Profit Margin</option>
+              <option value="Value of Business">Value of Business</option>
+            </select>
           </div>
           
           <div className="h-64 mb-6">
@@ -752,8 +861,11 @@ export default function Dashboard() {
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#000000', fontWeight: 'bold' }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#000000', fontWeight: 'bold' }} tickFormatter={(value) => `₱${value.toLocaleString()}`} dx={-10} width={80} />
-                <Tooltip cursor={{ fill: '#f3f4f6' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#000000', fontWeight: 'bold' }} tickFormatter={(value) => graphMetric === 'Profit Margin' ? `${value.toLocaleString()}%` : `₱${value.toLocaleString()}`} dx={-10} width={80} />
+                <Tooltip 
+                  cursor={{ fill: '#f3f4f6' }} 
+                  formatter={(value: any) => [graphMetric === 'Profit Margin' ? `${Number(value).toFixed(1)}%` : formatPHP(Number(value)), graphMetric]}
+                />
                 <Bar dataKey="total" fill="url(#colorTotal)" radius={[6, 6, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
@@ -763,7 +875,7 @@ export default function Dashboard() {
              <div className="flex flex-col gap-1 p-4 bg-gray-50/50 rounded-2xl border border-gray-100">
                <span className="text-gray-500 text-sm">{graphAmountLabel}</span>
                <div className="flex items-baseline gap-2">
-                 <span className="text-2xl font-medium">{formatPHP(graphTotalSales)}</span>
+                 <span className="text-2xl font-medium">{formatGraphValue(currentGraphTotalValue)}</span>
                </div>
              </div>
              <div className="flex flex-col gap-1 p-4 bg-gray-50/50 rounded-2xl border border-gray-100">
@@ -776,7 +888,7 @@ export default function Dashboard() {
                </span>
                <div className="flex items-baseline gap-2">
                  <span className={`text-2xl font-medium ${isPositiveGrowth ? 'text-success' : 'text-danger'}`}>
-                   {isPositiveGrowth ? '+ ' : '- '}{formatPHP(Math.abs(growthAmount))}
+                   {isPositiveGrowth ? '+ ' : '- '}{formatGraphValue(Math.abs(growthAmount))}
                  </span>
                </div>
              </div>
@@ -785,7 +897,7 @@ export default function Dashboard() {
         )}
 
         {/* Favorite Products */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col overflow-hidden">
+        <div className="w-full bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col overflow-hidden">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
             <h3 className="text-lg flex items-center gap-2 whitespace-nowrap">
               <span className="w-2 h-2 rounded-full bg-primary-500"></span>
@@ -806,21 +918,22 @@ export default function Dashboard() {
           <div className="w-full">
             {/* Header row using Grid */}
             <div className="grid grid-cols-12 gap-2 items-center text-xs text-gray-400 mb-4 px-2">
-              <span className="col-span-2 text-center">Img</span>
+              <span className="col-span-1 text-center">Img</span>
               <span className="col-span-3 text-left font-medium">Product Name</span>
-              <span className="col-span-2 text-center text-[11px] sm:text-xs">Orders</span>
+              <span className="col-span-1 text-center text-[11px] sm:text-xs">Orders</span>
               <span className="col-span-2 text-right text-[11px] sm:text-xs">Sales</span>
               <span className="col-span-2 text-right text-[11px] sm:text-xs">Profit</span>
+              <span className="col-span-2 text-right text-[11px] sm:text-xs">Avg Profit</span>
               <span className="col-span-1 text-center text-[11px] sm:text-xs"></span>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 max-h-[350px] pr-1">
+            <div className="flex-1 overflow-y-auto space-y-4 max-h-[320px] pr-1">
               {filteredProducts.length > 0 ? filteredProducts.map((product) => (
                 <div key={product.id} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-2xl border border-transparent hover:border-gray-50 hover:bg-gray-50/50 hover:shadow-sm transition-all group">
                   
                   {/* Image */}
-                  <div className="col-span-2 flex justify-center">
-                    <img src={product.image} alt={product.name} className="w-10 h-10 rounded-xl object-cover bg-gray-100 flex-shrink-0 shadow-[0_1px_3px_0_rgba(0,0,0,0.1)]" />
+                  <div className="col-span-1 flex justify-center">
+                    <img src={product.image} alt={product.name} className="w-8 h-8 rounded-xl object-cover bg-gray-100 flex-shrink-0 shadow-[0_1px_3px_0_rgba(0,0,0,0.1)]" />
                   </div>
                   
                   {/* Name and Category */}
@@ -830,7 +943,7 @@ export default function Dashboard() {
                   </div>
                   
                   {/* Orders */}
-                  <div className="col-span-2 text-center text-[12px] font-medium text-gray-600">
+                  <div className="col-span-1 text-center text-[12px] font-medium text-gray-600">
                     <span className="bg-gray-100 px-2 py-0.5 rounded-md">{product.orders}</span>
                   </div>
                   
@@ -842,6 +955,11 @@ export default function Dashboard() {
                   {/* Profit */}
                   <div className="col-span-2 text-right text-[12px] font-bold text-success truncate" title={formatPHP(product.profit)}>
                     {formatPHP(product.profit)}
+                  </div>
+
+                  {/* Avg Profit */}
+                  <div className="col-span-2 text-right text-[12px] font-medium text-indigo-500 truncate" title={`${formatPHP(product.avgProfit)} per day`}>
+                    {formatPHP(product.avgProfit)}/d
                   </div>
                   
                   {/* Actions */}
@@ -1430,29 +1548,28 @@ export default function Dashboard() {
   );
 }
 
-function StatCard({ title, value, unit, growth, percentage, isPositive, icon, isSmall = false, onAverageClick, showAverage, averageValue, averageLabel }: any) {
+function StatCard({ title, value, unit, growth, percentage, isPositive, icon, isSmall = false, onClick, showAverage, averageValue, averageLabel, description }: any) {
   const isNegativeValue = typeof value === 'string' && value.includes('-');
 
   return (
-    <div className={`bg-white rounded-3xl ${isSmall ? 'p-4' : 'p-6'} shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow cursor-default h-full relative group`}>
+    <div 
+      className={`bg-white rounded-3xl ${isSmall ? 'p-4' : 'p-6'} shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow relative group ${onClick ? 'cursor-pointer hover:bg-gray-50/50' : 'cursor-default'} h-full`}
+      onClick={(e) => {
+        if (onClick) {
+          e.stopPropagation();
+          onClick();
+        }
+      }}
+    >
       <div className={`flex items-start justify-between ${isSmall ? 'mb-2' : 'mb-4'}`}>
         <div className={`flex items-center gap-3`}>
           <span className="text-gray-400">{icon}</span>
           {!isSmall && <h4 className="text-gray-600 text-sm font-medium">{title}</h4>}
         </div>
         
-        {/* Growth Bubble and possible popover trigger */}
+        {/* Growth Bubble */}
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-center gap-2">
-            {onAverageClick && (
-              <div 
-                className="w-6 h-6 bg-primary-50 text-primary-600 rounded-lg flex items-center justify-center cursor-pointer hover:bg-primary-100 transition-colors"
-                onClick={(e) => { e.stopPropagation(); onAverageClick(); }}
-                title="Click for Average"
-              >
-                <div style={{ transform: "scale(0.6)" }}><CalendarIcon /></div>
-              </div>
-            )}
             <span className={`flex items-center gap-0.5 ${isPositive ? 'text-success' : 'text-danger'} ${isSmall ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-1'} font-medium bg-${isPositive ? 'green' : 'red'}-50 rounded-lg`}>
               {isPositive ? <GraphUp className={isSmall ? "w-2.5 h-2.5" : "w-3 h-3"} /> : <GraphDown className={isSmall ? "w-2.5 h-2.5" : "w-3 h-3"} />}
               {percentage}
@@ -1477,30 +1594,23 @@ function StatCard({ title, value, unit, growth, percentage, isPositive, icon, is
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className={`absolute left-0 right-0 ${isSmall ? '-bottom-20' : '-bottom-24'} bg-white rounded-2xl border border-primary-100 p-4 shadow-xl z-50 cursor-default`}
+            className="absolute left-0 right-0 top-[105%] bg-white rounded-3xl border border-primary-200 p-5 shadow-2xl z-50 cursor-default"
             onClick={(e) => e.stopPropagation()}
           >
-             <p className="text-xs text-gray-500 font-bold tracking-widest uppercase text-center mb-2">
+             <p className="text-xs text-primary-600 font-bold tracking-widest uppercase text-center mb-2">
                Average
              </p>
-             <p className={`${isSmall ? 'text-sm' : 'text-base md:text-lg'} text-primary-700 font-bold text-center bg-primary-50 py-2.5 rounded-xl`}>
-               {averageValue} / {averageLabel}
+             <p className={`${isSmall ? 'text-lg' : 'text-xl'} text-gray-900 font-bold text-center bg-gray-50 py-3 rounded-2xl mb-3`}>
+               {averageValue} <span className="text-sm font-medium text-gray-500">/ {averageLabel}</span>
              </p>
+             {description && (
+               <p className="text-sm text-gray-600 text-center leading-relaxed font-medium bg-indigo-50/50 p-3 rounded-xl border border-indigo-100/50">
+                 {description}
+               </p>
+             )}
           </motion.div>
         )}
       </AnimatePresence>
     </div>
-  );
-}
-
-// Minimal calendar icon for the button
-function CalendarIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-      <line x1="16" y1="2" x2="16" y2="6"></line>
-      <line x1="8" y1="2" x2="8" y2="6"></line>
-      <line x1="3" y1="10" x2="21" y2="10"></line>
-    </svg>
   );
 }
