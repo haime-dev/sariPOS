@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { BarChart, Bar, Tooltip, ResponsiveContainer, XAxis, YAxis } from 'recharts';
-import { Download, GraphUp, GraphDown, Magnifer, ChartSquare, Box, UsersGroupRounded, WadOfMoney, Wallet, CloseCircle } from '@solar-icons/react';
+import { Download, GraphUp, GraphDown, Magnifer, ChartSquare, Box, UsersGroupRounded, WadOfMoney, Wallet, CloseCircle, DangerTriangle } from '@solar-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTransactionStore } from '../store/useTransactionStore';
 import { useInventoryStore } from '../store/useInventoryStore';
@@ -143,6 +143,7 @@ export default function Dashboard() {
   // Top Selling Products Search & Metrics
   const [productSearch, setProductSearch] = useState('');
   const [selectedProductMetrics, setSelectedProductMetrics] = useState<any>(null);
+  const [isAlertMinimized, setIsAlertMinimized] = useState(false);
 
   // Drag-to-scroll state
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -597,6 +598,13 @@ export default function Dashboard() {
   const dynamicFavoriteProducts = Array.from(productMap.values()).sort((a, b) => b.profit - a.profit);
   const filteredProducts = dynamicFavoriteProducts.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()));
 
+  // Get top 20 selling products names to check their stock
+  const top20ProductNames = dynamicFavoriteProducts.slice(0, 20).map(p => p.name);
+  const lowStockAlerts = inventoryItems.filter(item => 
+    top20ProductNames.includes(item.name) && 
+    (item.status === 'Low Stock' || item.status === 'Out of Stock' || item.stock < 10)
+  );
+
   const executeDownload = () => {
     let exportTransactions = transactions;
     if (downloadType === 'Custom') {
@@ -648,6 +656,56 @@ export default function Dashboard() {
       onClick={() => setShowAverageFor(null)}
     >
       
+      {/* Low Stock Alert */}
+      {lowStockAlerts.length > 0 && (
+        <motion.div 
+          layout
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          onClick={(e) => { e.stopPropagation(); setIsAlertMinimized(!isAlertMinimized); }}
+          className={`cursor-pointer border shadow-sm relative overflow-hidden transition-colors ${
+            isAlertMinimized 
+              ? 'bg-red-50 border-red-200 hover:bg-red-100 p-3 rounded-2xl flex flex-row items-center gap-3 self-start w-auto' 
+              : 'bg-red-50 border-red-200 p-6 flex flex-col gap-2 rounded-3xl w-full'
+          }`}
+        >
+          {isAlertMinimized ? (
+            <>
+              <DangerTriangle className="w-5 h-5 text-red-600" variant="Bold" />
+              <span className="text-red-700 font-bold text-sm tracking-wide">
+                {lowStockAlerts.length} items low on stock
+              </span>
+            </>
+          ) : (
+            <>
+              <div className="absolute -right-6 -top-6 text-red-500/10">
+                <DangerTriangle className="w-48 h-48" />
+              </div>
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-2 text-red-700 font-extrabold mb-1">
+                  <DangerTriangle className="w-7 h-7" variant="Bold" />
+                  <h3 className="text-xl font-outfit">Critical Stock Alert</h3>
+                </div>
+                <span className="text-xs font-semibold text-red-500 px-3 py-1 bg-white rounded-lg border border-red-100">Click to minimize</span>
+              </div>
+              <p className="text-red-600/90 text-sm font-medium relative z-10 max-w-3xl">
+                Some of your <span className="font-bold underline decoration-red-300 underline-offset-2">top 20 best-selling products</span> are running critically low or are completely out of stock! Restock these immediately to avoid missing out on potential sales:
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3 relative z-10">
+                {lowStockAlerts.map(item => (
+                  <span key={item.id} className="bg-white border border-red-100 text-red-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm hover:shadow-md transition-shadow">
+                    {item.name} 
+                    <span className={`px-2 py-0.5 rounded-md mx-1 ${item.stock === 0 ? 'bg-red-500 text-white' : 'bg-orange-100 text-orange-800'}`}>
+                      {item.stock} left
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+        </motion.div>
+      )}
+
       {/* Top Action Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col sm:flex-row gap-3">
