@@ -1152,7 +1152,30 @@ export default function Dashboard() {
             <tbody className="divide-y divide-gray-100">
               {filteredTransactions.length > 0 ? filteredTransactions.map((order) => (
                 <tr key={order.id} className="text-center hover:bg-gray-50/50 transition-colors">
-                  <td className="py-4 text-gray-500">{order.id}</td>
+                  <td className="py-4 relative">
+                    <div className="group inline-block relative cursor-help">
+                      <span className="text-gray-500 border-b border-dashed border-gray-300 pb-[1px]">
+                        {order.id}
+                      </span>
+                      {/* Enhanced Hover Popover */}
+                      <div className="opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 absolute left-[calc(100%+16px)] top-1/2 -translate-y-1/2 bg-white border border-gray-100 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] rounded-2xl p-4 w-64 z-[100] text-left pointer-events-none scale-95 group-hover:scale-100 origin-left">
+                        {/* Tooltip Arrow */}
+                        <div className="absolute w-3 h-3 bg-white border-l border-b border-gray-100 -left-[6px] top-1/2 -translate-y-1/2 rotate-45"></div>
+                        
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 block">Items Sold</span>
+                        <div className="flex flex-col gap-2.5 max-h-[200px] overflow-y-auto hide-scrollbar">
+                          {order.items.map((i: any, idx: number) => (
+                            <div key={idx} className="flex justify-between items-start text-sm">
+                              <span className="font-semibold text-gray-800 leading-snug pr-3">{i.product.name}</span>
+                              <span className="text-xs font-bold text-primary-600 bg-primary-50 px-2 py-1 rounded-lg border border-primary-100 whitespace-nowrap mt-0.5">
+                                {i.quantity}x
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
                   <td className="py-4 text-left px-6">{new Date(order.date).toLocaleString()}</td>
                   <td className="py-4">{order.customer}</td>
                   <td className="py-4 font-medium text-primary-600">{formatPHP(order.amount_paid)}</td>
