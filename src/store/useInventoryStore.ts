@@ -11,7 +11,7 @@ interface InventoryStore {
   items: InventoryItem[];
   fetchItems: () => Promise<void>;
   addItem: (item: Omit<InventoryItem, 'id'>) => Promise<void>;
-  removeItem: (id: string) => Promise<void>;
+  removeItem: (id: string) => Promise<boolean>;
   updateItem: (id: string, updatedFields: Partial<InventoryItem>) => Promise<void>;
 }
 
@@ -56,10 +56,11 @@ export const useInventoryStore = create<InventoryStore>((set) => ({
       
     if (error) {
       console.error('Error deleting product:', error.message);
-      return;
+      return false;
     }
     
     set((state) => ({ items: state.items.filter(i => i.id !== id) }));
+    return true;
   },
   updateItem: async (id, updatedFields) => {
     const { data, error } = await supabase

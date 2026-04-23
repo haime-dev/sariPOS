@@ -138,12 +138,13 @@ export default function Dashboard() {
   const [datePeriod, setDatePeriod] = useState('Monthly');
   const [showGraph, setShowGraph] = useState(true);
   const [showAverageFor, setShowAverageFor] = useState<string | null>(null);
-  const [graphMetric, setGraphMetric] = useState<'Sales' | 'Net Profit' | 'Value of Business' | 'Used Capital' | 'Profit Margin'>('Sales');
+  const [graphMetric, setGraphMetric] = useState<'Sales' | 'Net Profit' | 'Value of Business' | 'Used Capital' | 'Profit Margin' | 'Available Cash'>('Sales');
 
   // Top Selling Products Search & Metrics
   const [productSearch, setProductSearch] = useState('');
   const [selectedProductMetrics, setSelectedProductMetrics] = useState<any>(null);
   const [isAlertMinimized, setIsAlertMinimized] = useState(false);
+  const [showUnpaidBreakdown, setShowUnpaidBreakdown] = useState(false);
 
   // Drag-to-scroll state
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -295,13 +296,16 @@ export default function Dashboard() {
     return d >= start && d <= end;
   });
 
-  const totalSales = statCardTransactions.reduce((sum, t) => sum + t.amount_paid, 0);
-  const totalUnpaidAmount = statCardTransactions.reduce((sum, t) => sum + (t.total - t.amount_paid), 0);
+  const totalSales = statCardTransactions.reduce((sum, t) => sum + (t.customer === 'Family Expense' ? 0 : t.amount_paid), 0);
+  const totalUnpaidAmount = statCardTransactions.reduce((sum, t) => sum + (t.customer === 'Family Expense' ? 0 : (t.total - t.amount_paid)), 0);
   const totalOrders = statCardTransactions.length;
   const totalCapital = statCardTransactions.reduce((sum, t) => {
+    let ratioPaid = t.total > 0 ? t.amount_paid / t.total : 1;
     return sum + t.items.reduce((itemSum, item) => {
+      const isExpense = t.customer === 'Family Expense' || (item.product.price === 0 && item.quantity > 0);
       const origPrice = item.product.original_price_at_time ?? item.product.original_price ?? 0;
-      return itemSum + (origPrice * item.quantity);
+      const effectiveRatioPaid = isExpense ? 1 : ratioPaid;
+      return itemSum + (origPrice * item.quantity * effectiveRatioPaid);
     }, 0);
   }, 0);
   const netProfit = totalSales - totalCapital;
@@ -337,8 +341,8 @@ export default function Dashboard() {
   const valueOfBusiness = netProfit - totalNonStoreExpense;
 
   // Generate dynamic chart data based on dashboard transactions and expenses
-  const chartDataMap = new Map<string, { Sales: number; 'Net Profit': number; 'Value of Business': number; 'Used Capital': number; 'Profit Margin': number }>();
-  const createEmptyBin = () => ({ Sales: 0, 'Net Profit': 0, 'Value of Business': 0, 'Used Capital': 0, 'Profit Margin': 0 });
+  const chartDataMap = new Map<string, { Sales: number; 'Net Profit': number; 'Value of Business': number; 'Used Capital': number; 'Profit Margin': number; 'Available Cash': number }>();
+  const createEmptyBin = () => ({ Sales: 0, 'Net Profit': 0, 'Value of Business': 0, 'Used Capital': 0, 'Profit Margin': 0, 'Available Cash': 0 });
   const weekLabels: { label: string, start: Date, end: Date }[] = [];
   
   if (datePeriod === 'Daily') {
@@ -393,8 +397,14 @@ export default function Dashboard() {
 
     if (binLabel && chartDataMap.has(binLabel)) {
       const bin = chartDataMap.get(binLabel)!;
-      const sales = t.amount_paid;
-      const capital = t.items.reduce((s, item) => s + (item.product.original_price_at_time ?? item.product.original_price ?? 0) * item.quantity, 0);
+      const isExpenseOrder = t.customer === 'Family Expense';
+      const sales = isExpenseOrder ? 0 : t.amount_paid;
+      let ratioPaid = t.total > 0 ? t.amount_paid / t.total : 1;
+      const capital = t.items.reduce((s, item) => {
+        const isExpense = isExpenseOrder || (item.product.price === 0 && item.quantity > 0);
+        const effectiveRatioPaid = isExpense ? 1 : ratioPaid;
+        return s + (item.product.original_price_at_time ?? item.product.original_price ?? 0) * item.quantity * effectiveRatioPaid;
+      }, 0);
       const profit = sales - capital;
       
       bin.Sales += sales;
@@ -427,6 +437,7 @@ export default function Dashboard() {
 
   chartDataMap.forEach(bin => {
     bin['Profit Margin'] = bin['Used Capital'] > 0 ? (bin['Net Profit'] / bin['Used Capital']) * 100 : 0;
+    bin['Available Cash'] = bin['Value of Business'] + bin['Used Capital'];
   });
 
   const chartDataRaw = Array.from(chartDataMap).map(([name, data]) => ({ name, ...data }));
@@ -440,13 +451,16 @@ export default function Dashboard() {
   });
 
   // Compute previous metrics for stat cards
-  const prevTotalSales = previousDashboardTransactions.reduce((sum, t) => sum + t.amount_paid, 0);
-  const prevTotalUnpaidAmount = previousDashboardTransactions.reduce((sum, t) => sum + (t.total - t.amount_paid), 0);
+  const prevTotalSales = previousDashboardTransactions.reduce((sum, t) => sum + (t.customer === 'Family Expense' ? 0 : t.amount_paid), 0);
+  const prevTotalUnpaidAmount = previousDashboardTransactions.reduce((sum, t) => sum + (t.customer === 'Family Expense' ? 0 : (t.total - t.amount_paid)), 0);
   const prevTotalOrders = previousDashboardTransactions.length;
   const prevTotalCapital = previousDashboardTransactions.reduce((sum, t) => {
+    let ratioPaid = t.total > 0 ? t.amount_paid / t.total : 1;
     return sum + t.items.reduce((itemSum, item) => {
+      const isExpense = t.customer === 'Family Expense' || (item.product.price === 0 && item.quantity > 0);
       const origPrice = item.product.original_price_at_time ?? item.product.original_price ?? 0;
-      return itemSum + (origPrice * item.quantity);
+      const effectiveRatioPaid = isExpense ? 1 : ratioPaid;
+      return itemSum + (origPrice * item.quantity * effectiveRatioPaid);
     }, 0);
   }, 0);
   const prevNetProfit = prevTotalSales - prevTotalCapital;
@@ -510,14 +524,16 @@ export default function Dashboard() {
     graphMetric === 'Net Profit' ? prevNetProfit :
     graphMetric === 'Value of Business' ? prevValueOfBusiness :
     graphMetric === 'Used Capital' ? prevTotalCapital :
-    graphMetric === 'Profit Margin' ? prevProfitMargin : 0;
+    graphMetric === 'Profit Margin' ? prevProfitMargin : 
+    graphMetric === 'Available Cash' ? prevAvailableCash : 0;
 
   const currentGraphTotalValue = 
     graphMetric === 'Sales' ? totalSales :
     graphMetric === 'Net Profit' ? netProfit :
     graphMetric === 'Value of Business' ? valueOfBusiness :
     graphMetric === 'Used Capital' ? totalCapital :
-    graphMetric === 'Profit Margin' ? profitMargin : 0;
+    graphMetric === 'Profit Margin' ? profitMargin :
+    graphMetric === 'Available Cash' ? availableCash : 0;
 
   const growthAmount = currentGraphTotalValue - previousGraphTotalValue;
   const isPositiveGrowth = growthAmount >= 0;
@@ -551,21 +567,21 @@ export default function Dashboard() {
   // Generate favorite products from dashboard transactions
   const productMap = new Map<string, { id: string, name: string, category: string, orders: number, sales: number, profit: number, avgProfit: number, image: string }>();
   dashboardTransactions.forEach(t => {
+    const isExpenseOrder = t.customer === 'Family Expense';
     t.items.forEach(item => {
       const existing = productMap.get(item.product.id);
       
-      // Calculate how much was paid proportionally for this item
-      // if it's partially paid we need to distribute the amount_paid across items
-      // `item.product.price` is mapped to `price_at_time` inside `useTransactionStore.ts`
-      const itemTotalValue = item.product.price * item.quantity;
+      const isExpense = isExpenseOrder || (item.product.price === 0 && item.quantity > 0);
+      const itemTotalValue = isExpense ? 0 : (item.product.price * item.quantity);
       let ratioPaid = 1;
-      if (t.total > 0) {
+      if (t.total > 0 && !isExpense) {
         ratioPaid = t.amount_paid / t.total;
       }
       
       const itemSales = itemTotalValue * ratioPaid;
       const origPrice = item.product.original_price_at_time ?? item.product.original_price ?? 0;
-      const itemCost = origPrice * item.quantity;
+      const effectiveRatioPaid = isExpense ? 1 : (t.total > 0 ? t.amount_paid / t.total : 1);
+      const itemCost = origPrice * item.quantity * effectiveRatioPaid;
       const itemProfit = itemSales - itemCost;
       
       if (existing) {
@@ -857,6 +873,7 @@ export default function Dashboard() {
           percentage={`${Math.abs(unpaidGrowth.percentage).toFixed(1)}%`} 
           isPositive={unpaidGrowth.isPositive} 
           icon={<Wallet className="w-5 h-5 text-danger" />} 
+          onClick={() => setShowUnpaidBreakdown(true)}
         />
         <StatCard 
           isSmall
@@ -905,6 +922,7 @@ export default function Dashboard() {
               <option value="Net Profit">Net Profit</option>
               <option value="Profit Margin">Profit Margin</option>
               <option value="Value of Business">Value of Business</option>
+              <option value="Available Cash">Available Cash</option>
             </select>
           </div>
           
@@ -1620,6 +1638,77 @@ export default function Dashboard() {
                 </div>
               </div>
 
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Unpaid Breakdown Modal */}
+      <AnimatePresence>
+        {showUnpaidBreakdown && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowUnpaidBreakdown(false)}
+              className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-md bg-white rounded-3xl shadow-xl relative z-10 overflow-hidden flex flex-col max-h-[80vh]"
+            >
+              <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="bg-red-100 p-2 rounded-xl text-red-500">
+                    <Wallet className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-medium text-gray-900 font-outfit">Unpaid Breakdown</h2>
+                    <p className="text-sm text-gray-500 font-medium">Total: <span className="text-danger font-bold">{formatPHP(totalUnpaidAmount)}</span></p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowUnpaidBreakdown(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <CloseCircle className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-auto p-6">
+                {totalUnpaidAmount === 0 ? (
+                  <div className="text-center text-gray-500 py-8">
+                    <p>No unpaid amounts for the selected period.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {Object.entries(
+                      statCardTransactions
+                        .filter(t => t.total > t.amount_paid)
+                        .reduce((acc, t) => {
+                          const unpaid = t.total - t.amount_paid;
+                          acc[t.customer] = (acc[t.customer] || 0) + unpaid;
+                          return acc;
+                        }, {} as Record<string, number>)
+                    )
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([customer, amount]) => (
+                      <div key={customer} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-100 hover:border-red-200 transition-colors group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-red-100 text-red-600 font-bold flex items-center justify-center text-sm shadow-sm">
+                            {customer.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-semibold text-gray-900 group-hover:text-red-700 transition-colors">{customer}</span>
+                        </div>
+                        <span className="font-bold text-danger text-lg">{formatPHP(amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </motion.div>
           </div>
         )}

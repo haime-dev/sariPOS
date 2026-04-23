@@ -57,14 +57,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   to={item.path}
                   onClick={() => window.innerWidth < 768 && onClose()}
                   className={({ isActive }) => `
-                    flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-200
+                    flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300
                     ${isActive 
-                      ? 'bg-primary-50 text-primary-600' 
-                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'}
+                      ? 'bg-primary-50 text-primary-600 font-bold shadow-sm' 
+                      : 'text-gray-500 font-medium hover:bg-gray-50 hover:text-gray-900'}
                   `}
                 >
-                  <Icon className="w-5 h-5" />
-                  {item.label}
+                  {({ isActive }) => (
+                    <>
+                      <Icon className="w-6 h-6" variant={isActive ? "Bold" : "Outline"} />
+                      {item.label}
+                    </>
+                  )}
                 </NavLink>
               );
             })}

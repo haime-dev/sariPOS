@@ -45,6 +45,8 @@ export default function Inventory() {
   }, [inventory, updateItem]);
 
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<any>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [newItem, setNewItem] = useState<{
     name: string;
@@ -293,7 +295,13 @@ export default function Inventory() {
                       <button onClick={() => handleEditClick(item)} className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors">
                         <Pen className="w-4 h-4" />
                       </button>
-                      <button onClick={() => removeItem(item.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <button 
+                        onClick={() => {
+                          setItemToDelete(item);
+                          setDeleteError(null);
+                        }} 
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
                         <TrashBinTrash className="w-4 h-4" />
                       </button>
                     </div>
@@ -444,6 +452,64 @@ export default function Inventory() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Delete Product Modal */}
+      <AnimatePresence>
+        {itemToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setItemToDelete(null)}
+              className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-sm bg-white rounded-3xl shadow-xl relative z-10 overflow-hidden"
+            >
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500">
+                  <TrashBinTrash className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2 font-outfit">Delete Product</h3>
+                <p className="text-gray-500 text-sm mb-6">
+                  Are you sure you want to delete <span className="font-semibold text-gray-900">"{itemToDelete.name}"</span>? This action cannot be undone.
+                </p>
+                
+                {deleteError && (
+                  <div className="mb-6 p-3 bg-red-50 text-red-600 text-sm rounded-xl text-left border border-red-100">
+                    {deleteError}
+                  </div>
+                )}
+                
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setItemToDelete(null)}
+                    className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 rounded-2xl hover:bg-gray-200 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      const success = await removeItem(itemToDelete.id);
+                      if (success) {
+                        setItemToDelete(null);
+                      } else {
+                        setDeleteError('Cannot delete this product. It may be part of existing orders. Try setting stock to 0 instead.');
+                      }
+                    }}
+                    className="flex-1 py-3 px-4 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-colors font-medium shadow-lg shadow-red-500/30"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
