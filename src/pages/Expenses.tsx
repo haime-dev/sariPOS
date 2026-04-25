@@ -108,16 +108,34 @@ export default function Expenses() {
   // Average calculations
   let avgDivisor = 1;
   let avgLabel = "day";
-  let earliestStatDate = new Date();
-  if (chartExpenses.length > 0) {
-     earliestStatDate = new Date(Math.min(...chartExpenses.map(e => new Date(e.date).getTime())));
+  let avgSymbol = "/d";
+
+  if (datePeriod === 'Daily') {
+    avgDivisor = 7;
+    avgLabel = "day (this period)";
+    avgSymbol = "/d";
+  } else if (datePeriod === 'Weekly') {
+    avgDivisor = 4;
+    avgLabel = "week (this period)";
+    avgSymbol = "/w";
+  } else if (datePeriod === 'Monthly') {
+    avgDivisor = 12;
+    avgLabel = "month (this period)";
+    avgSymbol = "/mo";
+  } else if (datePeriod === 'All Time') {
+    let earliestStatDate = new Date();
+    if (expenses.length > 0) {
+       earliestStatDate = new Date(Math.min(...expenses.map(e => new Date(e.date).getTime())));
+    }
+    avgDivisor = Math.max(1, Math.ceil((new Date().getTime() - earliestStatDate.getTime()) / (1000 * 60 * 60 * 24)));
+    avgLabel = "day (all time)";
+    avgSymbol = "/d";
+  } else if (datePeriod === 'Custom') {
+    const daysDiff = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+    avgDivisor = Math.max(1, daysDiff);
+    avgLabel = "day";
+    avgSymbol = "/d";
   }
-  const daysDiffStat = Math.ceil((new Date().getTime() - earliestStatDate.getTime()) / (1000 * 60 * 60 * 24));
-  if (datePeriod === 'Weekly') { avgDivisor = Math.ceil(daysDiffStat / 7); avgLabel = "week"; }
-  else if (datePeriod === 'Monthly') { avgDivisor = Math.ceil(daysDiffStat / 30.44); avgLabel = "month"; }
-  else if (datePeriod === 'All Time') { avgDivisor = Math.ceil(daysDiffStat / 365.25); avgLabel = "year"; }
-  else { avgDivisor = daysDiffStat; avgLabel = "day"; }
-  if (avgDivisor < 1) avgDivisor = 1;
 
   const totalExpensesAvg = totalExpenses / avgDivisor;
   const totalNonStoreAvg = totalNonStoreExpense / avgDivisor;
@@ -245,13 +263,8 @@ export default function Expenses() {
   };
   
   const expenseMap = new Map<string, any>();
-  const firstExpenseDates = new Map<string, Date>();
 
-  expenses.forEach(e => {
-     const d = new Date(e.date);
-     const existingD = firstExpenseDates.get(e.description);
-     if (!existingD || d < existingD) firstExpenseDates.set(e.description, d);
-     
+  chartExpenses.forEach(e => {
      if (!expenseMap.has(e.description)) {
          expenseMap.set(e.description, {
             description: e.description,
@@ -265,15 +278,8 @@ export default function Expenses() {
      }
   });
 
-  const nowTime = new Date().getTime();
   const topExpensesList = Array.from(expenseMap.values()).map(e => {
-     const firstD = firstExpenseDates.get(e.description);
-     let days = 1;
-     if (firstD) {
-        days = Math.ceil((nowTime - firstD.getTime()) / (1000 * 60 * 60 * 24));
-        if (days < 1) days = 1;
-     }
-     e.avgExpense = e.amount / days;
+     e.avgExpense = e.amount / avgDivisor;
      return e;
   }).sort((a,b) => b.amount - a.amount);
 
@@ -523,7 +529,7 @@ export default function Expenses() {
               <span className="col-span-4 text-left font-medium">Description</span>
               <span className="col-span-3 text-left font-medium">Category</span>
               <span className="col-span-2 text-right font-medium">Total Amount</span>
-              <span className="col-span-3 text-right font-medium">Avg Expense / Day</span>
+              <span className="col-span-3 text-right font-medium">Average Expense</span>
             </div>
             
             <div className="flex-1 overflow-y-auto space-y-2 max-h-[350px] pr-1">
@@ -540,8 +546,8 @@ export default function Expenses() {
                   <div className="col-span-2 text-right font-bold text-danger truncate">
                     {formatPHP(expense.amount)}
                   </div>
-                  <div className="col-span-3 text-right font-bold text-orange-500 truncate">
-                    {formatPHP(expense.avgExpense)}/d
+                  <div className="col-span-3 text-right font-bold text-orange-500 truncate" title={`${formatPHP(expense.avgExpense)} per ${avgLabel.split(' ')[0]}`}>
+                    {formatPHP(expense.avgExpense)}{avgSymbol}
                   </div>
                 </div>
               )) : (

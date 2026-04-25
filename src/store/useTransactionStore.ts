@@ -260,7 +260,10 @@ export const useTransactionStore = create<TransactionStore>((set, get) => ({
     }));
 
     // Log the undo action
-    await get().logTransactionAction('Order Undone', transactionId, `Order ${transactionId} was reverted and stock was restored.`);
+    await get().logTransactionAction('Order Undone', transactionId, JSON.stringify({
+      message: `Order ${transactionId} was reverted and stock was restored.`,
+      transaction: transactionToReverse
+    }));
   },
   updateTransactionPayment: async (transactionId, payment, amount_paid) => {
     const { data: authData } = await supabase.auth.getUser();

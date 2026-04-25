@@ -183,7 +183,8 @@ export default function Dashboard() {
 
   // Undo Modal State
   const [showUndoModal, setShowUndoModal] = useState(false);
-  const [transactionToUndo, setTransactionToUndo] = useState<string | null>(null);
+  const [transactionsToUndo, setTransactionsToUndo] = useState<string[]>([]);
+  const [selectedOrdersToUndo, setSelectedOrdersToUndo] = useState<string[]>([]);
 
   // Download Modal State
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -195,11 +196,8 @@ export default function Dashboard() {
   });
   const [downloadEnd, setDownloadEnd] = useState(new Date().toISOString().split('T')[0]);
   
-  // Set default date range to the last 30 days
-  const defaultStart = new Date();
-  defaultStart.setDate(defaultStart.getDate() - 30);
-  
-  const [startDate, setStartDate] = useState(defaultStart.toISOString().split('T')[0]);
+  // Set default date range to today
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
@@ -215,7 +213,7 @@ export default function Dashboard() {
     setSortConfig({ key, direction });
   };
   
-  const { transactions, fetchTransactions, updateTransactionPayment } = useTransactionStore();
+  const { transactions, fetchTransactions, updateTransactionPayment, reverseTransaction } = useTransactionStore();
   const { items: inventoryItems, fetchItems: fetchInventoryItems } = useInventoryStore();
   const { expenses, fetchExpenses } = useExpenseStore();
 
@@ -484,18 +482,23 @@ export default function Dashboard() {
   
   let divisor = 1;
   let avgLabel = "";
+  let avgSymbol = "/d";
   if (datePeriod === 'Daily') {
     divisor = 7;
     avgLabel = "day (this period)";
+    avgSymbol = "/d";
   } else if (datePeriod === 'Weekly') {
     divisor = 4;
     avgLabel = "week (this period)";
+    avgSymbol = "/w";
   } else if (datePeriod === 'Monthly') {
     divisor = 12;
     avgLabel = "month (this period)";
+    avgSymbol = "/mo";
   } else if (datePeriod === 'All Time') {
     divisor = absoluteDaysSinceFirstItem;
     avgLabel = "day (all time)";
+    avgSymbol = "/d";
   }
   
   const totalSalesAvg = totalSales / divisor;
@@ -565,7 +568,7 @@ export default function Dashboard() {
   });
 
   // Generate favorite products from dashboard transactions
-  const productMap = new Map<string, { id: string, name: string, category: string, orders: number, sales: number, profit: number, avgProfit: number, image: string }>();
+  const productMap = new Map<string, { id: string, name: string, category: string, orders: number, sales: number, profit: number, avgProfit: number, avgSales: number, avgOrders: number, image: string }>();
   dashboardTransactions.forEach(t => {
     const isExpenseOrder = t.customer === 'Family Expense';
     t.items.forEach(item => {
@@ -597,17 +600,19 @@ export default function Dashboard() {
           sales: itemSales,
           profit: itemProfit,
           avgProfit: 0,
+          avgSales: 0,
+          avgOrders: 0,
           image: item.product.image || 'https://images.unsplash.com/photo-1549903072-7e6e0b3c2242?auto=format&fit=crop&q=80&w=100&h=100'
         });
       }
     });
   });
   
-  // Calculate average profit per product
+  // Calculate averages per product based on the selected time frame
   Array.from(productMap.values()).forEach(product => {
-    const firstSold = firstSoldDates.get(product.id) || new Date();
-    const daysSince = Math.max(1, Math.ceil((new Date().getTime() - firstSold.getTime()) / (1000 * 60 * 60 * 24)));
-    product.avgProfit = product.profit / daysSince;
+    product.avgProfit = product.profit / divisor;
+    product.avgSales = product.sales / divisor;
+    product.avgOrders = product.orders / divisor;
   });
 
   const dynamicFavoriteProducts = Array.from(productMap.values()).sort((a, b) => b.profit - a.profit);
@@ -990,70 +995,84 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <div className="w-full">
-            {/* Header row using Grid */}
-            <div className="grid grid-cols-12 gap-2 items-center text-xs text-gray-400 mb-4 px-2">
-              <span className="col-span-1 text-center">Img</span>
-              <span className="col-span-3 text-left font-medium">Product Name</span>
-              <span className="col-span-1 text-center text-[11px] sm:text-xs">Orders</span>
-              <span className="col-span-2 text-right text-[11px] sm:text-xs">Sales</span>
-              <span className="col-span-2 text-right text-[11px] sm:text-xs">Profit</span>
-              <span className="col-span-2 text-right text-[11px] sm:text-xs">Avg Profit</span>
-              <span className="col-span-1 text-center text-[11px] sm:text-xs"></span>
-            </div>
+          <div className="w-full overflow-x-auto hide-scrollbar">
+            <div className="min-w-[900px]">
+              {/* Header row using Grid */}
+              <div className="grid grid-cols-10 gap-2 items-center text-xs sm:text-sm font-bold text-gray-600 uppercase tracking-wider mb-4 px-3 pb-3 border-b border-gray-100">
+                <span className="col-span-1 text-center">Img</span>
+                <span className="col-span-2 text-left">Product Name</span>
+                <span className="col-span-1 text-center">Items</span>
+                <span className="col-span-1 text-center">Avg Items</span>
+                <span className="col-span-1 text-right">Sales</span>
+                <span className="col-span-1 text-right">Avg Sales</span>
+                <span className="col-span-1 text-right">Profit</span>
+                <span className="col-span-1 text-right">Avg Profit</span>
+                <span className="col-span-1 text-center"></span>
+              </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 max-h-[320px] pr-1">
-              {filteredProducts.length > 0 ? filteredProducts.map((product) => (
-                <div key={product.id} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-2xl border border-transparent hover:border-gray-50 hover:bg-gray-50/50 hover:shadow-sm transition-all group">
-                  
-                  {/* Image */}
-                  <div className="col-span-1 flex justify-center">
-                    <img src={product.image} alt={product.name} className="w-8 h-8 rounded-xl object-cover bg-gray-100 flex-shrink-0 shadow-[0_1px_3px_0_rgba(0,0,0,0.1)]" />
-                  </div>
-                  
-                  {/* Name and Category */}
-                  <div className="col-span-3 text-left min-w-0 pr-1 shrink">
-                    <h4 className="text-sm font-medium text-text-main truncate" title={product.name}>{product.name}</h4>
-                    <span className="text-[10px] text-primary-500 font-semibold tracking-wide truncate block uppercase">{product.category}</span>
-                  </div>
-                  
-                  {/* Orders */}
-                  <div className="col-span-1 text-center text-[12px] font-medium text-gray-600">
-                    <span className="bg-gray-100 px-2 py-0.5 rounded-md">{product.orders}</span>
-                  </div>
-                  
-                  {/* Sales */}
-                  <div className="col-span-2 text-right text-[12px] font-bold text-primary-600 truncate" title={formatPHP(product.sales)}>
-                    {formatPHP(product.sales)}
-                  </div>
-                  
-                  {/* Profit */}
-                  <div className="col-span-2 text-right text-[12px] font-bold text-success truncate" title={formatPHP(product.profit)}>
-                    {formatPHP(product.profit)}
-                  </div>
+              <div className="flex-1 overflow-y-auto space-y-4 max-h-[320px] pr-1">
+                {filteredProducts.length > 0 ? filteredProducts.map((product) => (
+                  <div key={product.id} className="grid grid-cols-10 gap-2 items-center bg-white p-2 rounded-2xl border border-transparent hover:border-gray-50 hover:bg-gray-50/50 hover:shadow-sm transition-all group">
+                    
+                    {/* Image */}
+                    <div className="col-span-1 flex justify-center">
+                      <img src={product.image} alt={product.name} className="w-8 h-8 rounded-xl object-cover bg-gray-100 flex-shrink-0 shadow-[0_1px_3px_0_rgba(0,0,0,0.1)]" />
+                    </div>
+                    
+                    {/* Name and Category */}
+                    <div className="col-span-2 text-left min-w-0 pr-1 shrink">
+                      <h4 className="text-sm font-medium text-text-main truncate" title={product.name}>{product.name}</h4>
+                      <span className="text-[10px] text-primary-500 font-semibold tracking-wide truncate block uppercase">{product.category}</span>
+                    </div>
+                    
+                    {/* Orders */}
+                    <div className="col-span-1 text-center text-[12px] font-medium text-gray-600">
+                      <span className="bg-gray-100 px-2 py-0.5 rounded-md">{product.orders}</span>
+                    </div>
+                    
+                    {/* Avg Orders */}
+                    <div className="col-span-1 text-center text-[12px] font-medium text-orange-500 truncate" title={`${product.avgOrders.toFixed(1)} per ${avgLabel.split(' ')[0]}`}>
+                      {product.avgOrders.toFixed(1)}{avgSymbol}
+                    </div>
+                    
+                    {/* Sales */}
+                    <div className="col-span-1 text-right text-[12px] font-bold text-primary-600 truncate" title={formatPHP(product.sales)}>
+                      {formatPHP(product.sales)}
+                    </div>
+                    
+                    {/* Avg Sales */}
+                    <div className="col-span-1 text-right text-[12px] font-medium text-blue-400 truncate" title={`${formatPHP(product.avgSales)} per ${avgLabel.split(' ')[0]}`}>
+                      {formatPHP(product.avgSales)}{avgSymbol}
+                    </div>
+                    
+                    {/* Profit */}
+                    <div className="col-span-1 text-right text-[12px] font-bold text-success truncate" title={formatPHP(product.profit)}>
+                      {formatPHP(product.profit)}
+                    </div>
 
-                  {/* Avg Profit */}
-                  <div className="col-span-2 text-right text-[12px] font-medium text-indigo-500 truncate" title={`${formatPHP(product.avgProfit)} per day`}>
-                    {formatPHP(product.avgProfit)}/d
+                    {/* Avg Profit */}
+                    <div className="col-span-1 text-right text-[12px] font-medium text-indigo-500 truncate" title={`${formatPHP(product.avgProfit)} per ${avgLabel.split(' ')[0]}`}>
+                      {formatPHP(product.avgProfit)}{avgSymbol}
+                    </div>
+                    
+                    {/* Actions */}
+                    <div className="col-span-1 flex justify-center">
+                      <button 
+                        onClick={() => setSelectedProductMetrics(product)}
+                        className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        title="View Metrics"
+                      >
+                        <ChartSquare className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
-                  
-                  {/* Actions */}
-                  <div className="col-span-1 flex justify-center">
-                    <button 
-                      onClick={() => setSelectedProductMetrics(product)}
-                      className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                      title="View Metrics"
-                    >
-                      <ChartSquare className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              )) : (
+                )) : (
                 <div className="h-full flex flex-col items-center justify-center text-gray-400 text-sm py-12">
                   <Box className="w-12 h-12 text-gray-200 mb-2" />
                   No products matched your search.
                 </div>
               )}
+            </div>
             </div>
           </div>
         </div>
@@ -1063,10 +1082,23 @@ export default function Dashboard() {
       {/* All Orders Table */}
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-           <h3 className="text-lg flex items-center gap-2">
-             <span className="w-2 h-2 rounded-full bg-primary-500"></span>
-             All Orders
-           </h3>
+           <div className="flex items-center gap-4">
+             <h3 className="text-lg flex items-center gap-2">
+               <span className="w-2 h-2 rounded-full bg-primary-500"></span>
+               All Orders
+             </h3>
+             {selectedOrdersToUndo.length > 0 && (
+               <button 
+                 onClick={() => {
+                   setTransactionsToUndo(selectedOrdersToUndo);
+                   setShowUndoModal(true);
+                 }}
+                 className="px-3 py-1.5 bg-danger text-white rounded-xl text-sm font-medium hover:bg-danger/90 transition-colors shadow-sm flex items-center gap-1.5"
+               >
+                 Undo Selected ({selectedOrdersToUndo.length})
+               </button>
+             )}
+           </div>
            
            <div className="flex flex-wrap items-center gap-3 text-sm">
              <div className="flex items-center gap-2 text-gray-500">
@@ -1103,6 +1135,17 @@ export default function Dashboard() {
           <table className="w-full min-w-[1000px] text-left text-sm whitespace-nowrap">
             <thead className="sticky top-0 bg-white z-10 shadow-sm">
               <tr className="text-gray-500">
+                <th className="pb-4 pt-4 pl-4 w-12 text-center">
+                  <input 
+                    type="checkbox"
+                    checked={filteredTransactions.length > 0 && selectedOrdersToUndo.length === filteredTransactions.length}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedOrdersToUndo(filteredTransactions.map((t: any) => t.id));
+                      else setSelectedOrdersToUndo([]);
+                    }}
+                    className="w-4 h-4 text-primary-500 rounded border-gray-300 focus:ring-primary-500"
+                  />
+                </th>
                 <th className="pb-4 pt-4 text-center cursor-pointer" onClick={() => requestSort('id')}>
                   <div className="border border-gray-200 hover:bg-gray-50 transition-colors rounded-full py-1 px-4 flex items-center justify-center gap-1 whitespace-nowrap">
                     Order Number {sortConfig?.key === 'id' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
@@ -1170,6 +1213,17 @@ export default function Dashboard() {
             <tbody className="divide-y divide-gray-100">
               {filteredTransactions.length > 0 ? filteredTransactions.map((order) => (
                 <tr key={order.id} className="text-center hover:bg-gray-50/50 transition-colors">
+                  <td className="py-4 pl-4">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedOrdersToUndo.includes(order.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedOrdersToUndo(prev => [...prev, order.id]);
+                        else setSelectedOrdersToUndo(prev => prev.filter(id => id !== order.id));
+                      }}
+                      className="w-4 h-4 text-primary-500 rounded border-gray-300 focus:ring-primary-500"
+                    />
+                  </td>
                   <td className="py-4 relative">
                     <div className="group inline-block relative cursor-help">
                       <span className="text-gray-500 border-b border-dashed border-gray-300 pb-[1px]">
@@ -1215,7 +1269,7 @@ export default function Dashboard() {
                   <td className="py-4">
                     <button 
                       onClick={() => {
-                        setTransactionToUndo(order.id);
+                        setTransactionsToUndo([order.id]);
                         setShowUndoModal(true);
                       }}
                       className="text-danger hover:underline px-3 py-1 bg-danger/5 rounded-full text-xs font-medium"
@@ -1226,7 +1280,7 @@ export default function Dashboard() {
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-gray-400">No matching orders found</td>
+                  <td colSpan={9} className="py-8 text-center text-gray-400">No matching orders found</td>
                 </tr>
               )}
             </tbody>
@@ -1433,7 +1487,7 @@ export default function Dashboard() {
 
       {/* Undo Modal */}
       <AnimatePresence>
-        {showUndoModal && transactionToUndo && (
+        {showUndoModal && transactionsToUndo.length > 0 && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
@@ -1455,25 +1509,28 @@ export default function Dashboard() {
               </div>
               <h3 className="text-xl font-medium text-center text-gray-900 mb-2">Undo Transaction</h3>
               <p className="text-sm text-center text-gray-500 mb-6">
-                Are you sure you want to undo transaction <strong>{transactionToUndo}</strong>? This will reverse the sale and restore inventory.
+                Are you sure you want to undo {transactionsToUndo.length === 1 ? `transaction ${transactionsToUndo[0]}` : `${transactionsToUndo.length} transactions`}? This will reverse the sale and restore inventory.
               </p>
               
               <div className="flex gap-3">
                 <button 
                   onClick={() => setShowUndoModal(false)}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                  className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-medium transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={async () => {
-                    await useTransactionStore.getState().reverseTransaction(transactionToUndo);
+                    for (const id of transactionsToUndo) {
+                      await reverseTransaction(id);
+                    }
+                    setTransactionsToUndo([]);
+                    setSelectedOrdersToUndo([]);
                     setShowUndoModal(false);
-                    setTransactionToUndo(null);
                   }}
-                  className="flex-1 px-4 py-2.5 bg-danger text-white rounded-xl font-medium hover:bg-danger/90 transition-colors shadow-sm"
+                  className="flex-1 py-3 bg-danger text-white rounded-2xl font-medium shadow-sm hover:shadow-md hover:bg-red-600 transition-all"
                 >
-                  Undo Order
+                  Confirm Undo
                 </button>
               </div>
             </motion.div>

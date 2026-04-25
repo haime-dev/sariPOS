@@ -84,6 +84,7 @@ export const useExpenseStore = create<ExpenseStore>((set) => ({
     }
   },
   deleteExpense: async (id) => {
+    const expenseToDelete = get().expenses.find(e => e.id === id);
     const { error } = await supabase
       .from('expenses')
       .delete()
@@ -92,6 +93,14 @@ export const useExpenseStore = create<ExpenseStore>((set) => ({
     if (error) {
       console.error('Error deleting expense:', error.message);
       return;
+    }
+    
+    if (expenseToDelete) {
+      const { useTransactionStore } = await import('./useTransactionStore');
+      await useTransactionStore.getState().logTransactionAction('Expense Deleted', id, JSON.stringify({
+        message: `Expense ${id} (${expenseToDelete.description}) was deleted.`,
+        expense: expenseToDelete
+      }));
     }
     
     set((state) => ({ expenses: state.expenses.filter(e => e.id !== id) }));
