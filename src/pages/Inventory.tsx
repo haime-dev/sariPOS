@@ -68,12 +68,35 @@ export default function Inventory() {
     image: 'https://images.unsplash.com/photo-1549903072-7e6e0b3c2242?auto=format&fit=crop&q=80&w=200&h=200'
   });
 
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
+
   const filteredInventory = inventory.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = categoryFilter === 'All' ? true : item.category === categoryFilter;
     const matchesStatus = statusFilter === 'All' ? true : item.status === statusFilter;
     
     return matchesSearch && matchesCategory && matchesStatus;
+  }).sort((a, b) => {
+    if (!sortConfig) return 0;
+    const { key, direction } = sortConfig;
+    
+    let aVal: any = a[key as keyof typeof a] || '';
+    let bVal: any = b[key as keyof typeof b] || '';
+
+    if (key === 'capital') {
+      aVal = (a.original_price || 0) * a.stock;
+      bVal = (b.original_price || 0) * b.stock;
+    } else if (key === 'margin') {
+      aVal = a.original_price && a.original_price > 0 ? (a.price / a.original_price) - 1 : 0;
+      bVal = b.original_price && b.original_price > 0 ? (b.price / b.original_price) - 1 : 0;
+    } else if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase();
+      bVal = bVal.toLowerCase();
+    }
+
+    if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+    return 0;
   });
 
   const handleSave = (e: React.FormEvent) => {
@@ -179,6 +202,14 @@ export default function Inventory() {
     }
   };
 
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
   return (
     <div className="h-full flex flex-col gap-6 relative">
       {/* Header Section */}
@@ -245,21 +276,55 @@ export default function Inventory() {
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-white/95 backdrop-blur-sm shadow-sm z-10">
               <tr>
-                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Product</th>
+                <th 
+                  className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => requestSort('name')}
+                >
+                  <div className="flex items-center gap-1">
+                    Product
+                    {sortConfig?.key === 'name' && (
+                      <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
 
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Category</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Orig. Price</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Selling Price</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Stock</th>
-                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Total Capital</th>
-                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Margin</th>
+                <th 
+                  className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => requestSort('capital')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Total Capital
+                    {sortConfig?.key === 'capital' && (
+                      <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => requestSort('margin')}
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Margin
+                    {sortConfig?.key === 'margin' && (
+                      <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredInventory.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50/50 transition-colors group">
+                <tr 
+                  key={item.id} 
+                  onClick={() => handleEditClick(item)}
+                  className="hover:bg-gray-50/50 transition-colors group cursor-pointer"
+                >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <img src={item.image} alt={item.name} className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
@@ -296,7 +361,8 @@ export default function Inventory() {
                         <Pen className="w-4 h-4" />
                       </button>
                       <button 
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setItemToDelete(item);
                           setDeleteError(null);
                         }} 

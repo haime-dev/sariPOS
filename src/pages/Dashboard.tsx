@@ -145,6 +145,7 @@ export default function Dashboard() {
   const [selectedProductMetrics, setSelectedProductMetrics] = useState<any>(null);
   const [isAlertMinimized, setIsAlertMinimized] = useState(false);
   const [showUnpaidBreakdown, setShowUnpaidBreakdown] = useState(false);
+  const [showUnusedCapitalBreakdown, setShowUnusedCapitalBreakdown] = useState(false);
 
   // Drag-to-scroll state
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -185,6 +186,22 @@ export default function Dashboard() {
   const [showUndoModal, setShowUndoModal] = useState(false);
   const [transactionsToUndo, setTransactionsToUndo] = useState<string[]>([]);
   const [selectedOrdersToUndo, setSelectedOrdersToUndo] = useState<string[]>([]);
+  const allOrdersTableRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showUndoModal) return;
+      
+      if (selectedOrdersToUndo.length > 0 && allOrdersTableRef.current && !allOrdersTableRef.current.contains(e.target as Node)) {
+        setSelectedOrdersToUndo([]);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [selectedOrdersToUndo.length, showUndoModal]);
 
   // Download Modal State
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -868,6 +885,7 @@ export default function Dashboard() {
           percentage="0.0%" 
           isPositive 
           icon={<Wallet className="w-5 h-5 text-blue-400" />} 
+          onClick={() => setShowUnusedCapitalBreakdown(true)}
         />
         <StatCard 
           isSmall
@@ -1080,7 +1098,7 @@ export default function Dashboard() {
       </div>
 
       {/* All Orders Table */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+      <div ref={allOrdersTableRef} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
            <div className="flex items-center gap-4">
              <h3 className="text-lg flex items-center gap-2">
@@ -1742,29 +1760,109 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {Object.entries(
-                      statCardTransactions
-                        .filter(t => t.total > t.amount_paid)
-                        .reduce((acc, t) => {
-                          const unpaid = t.total - t.amount_paid;
-                          acc[t.customer] = (acc[t.customer] || 0) + unpaid;
-                          return acc;
-                        }, {} as Record<string, number>)
-                    )
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([customer, amount]) => (
-                      <div key={customer} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-100 hover:border-red-200 transition-colors group">
+                    {statCardTransactions
+                      .filter(t => t.total > t.amount_paid)
+                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .map((t) => (
+                      <div 
+                        key={t.id} 
+                        onClick={() => {
+                          setShowUnpaidBreakdown(false);
+                          setIsEditingPayment(true);
+                          setSelectedOrder(t);
+                          setEditPaymentStatus(t.payment || 'Paid');
+                          setEditAmountPaid(t.amount_paid?.toString() || t.total.toString());
+                        }}
+                        className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-100 hover:border-red-200 transition-colors group cursor-pointer"
+                      >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-red-100 text-red-600 font-bold flex items-center justify-center text-sm shadow-sm">
-                            {customer.charAt(0).toUpperCase()}
+                            {t.customer.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-semibold text-gray-900 group-hover:text-red-700 transition-colors">{customer}</span>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-gray-900 group-hover:text-red-700 transition-colors">{t.customer}</span>
+                            <span className="text-[10px] text-gray-500">{new Date(t.date).toLocaleDateString()}</span>
+                          </div>
                         </div>
-                        <span className="font-bold text-danger text-lg">{formatPHP(amount)}</span>
+                        <div className="flex flex-col items-end">
+                          <span className="font-bold text-danger text-lg">{formatPHP(t.total - t.amount_paid)}</span>
+                          <span className="text-xs text-primary-600 group-hover:underline">Edit Payment</span>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Unused Capital Breakdown Modal */}
+      <AnimatePresence>
+        {showUnusedCapitalBreakdown && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowUnusedCapitalBreakdown(false)}
+              className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-md bg-white rounded-3xl shadow-xl relative z-10 overflow-hidden flex flex-col max-h-[80vh]"
+            >
+              <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-100 p-2 rounded-xl text-blue-500">
+                    <Box className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-medium text-gray-900 font-outfit">Top 10 Least Selling</h2>
+                    <p className="text-sm text-gray-500 font-medium">By items sold</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowUnusedCapitalBreakdown(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <CloseCircle className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-auto p-6">
+                <div className="space-y-3">
+                  {[...inventoryItems]
+                    .map(product => {
+                      const salesQty = statCardTransactions.reduce((acc, t) => {
+                        const itemInTransaction = t.items.find((i: any) => i.product.id === product.id);
+                        return acc + (itemInTransaction ? itemInTransaction.quantity : 0);
+                      }, 0);
+                      return { ...product, salesQty };
+                    })
+                    .sort((a, b) => a.salesQty - b.salesQty)
+                    .slice(0, 10)
+                    .map((product, idx) => (
+                    <div key={product.id} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-100 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-600 font-bold flex items-center justify-center text-sm shadow-sm">
+                          {idx + 1}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-gray-900 truncate max-w-[150px]">{product.name}</span>
+                          <span className="text-[10px] text-gray-500">{product.stock} in stock</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="font-bold text-gray-900">{product.salesQty} Sold</span>
+                        <span className="text-xs text-blue-500 font-medium">{formatPHP((product.original_price || 0) * product.stock)} Unused</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </motion.div>
           </div>

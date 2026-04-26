@@ -83,6 +83,28 @@ export default function ProductGrid() {
         {filteredProducts.map((product) => (
           <div 
             key={product.id}
+            draggable={product.stock > 0}
+            onDragStart={(e: React.DragEvent) => {
+              if (product.stock <= 0) {
+                e.preventDefault();
+                return;
+              }
+              e.dataTransfer.setData('product_id', product.id);
+              e.dataTransfer.effectAllowed = 'copy';
+              
+              const dragGhost = document.createElement('div');
+              dragGhost.textContent = `Add ${product.name} to cart`;
+              dragGhost.style.background = '#3b82f6';
+              dragGhost.style.color = 'white';
+              dragGhost.style.padding = '8px 16px';
+              dragGhost.style.borderRadius = '16px';
+              dragGhost.style.position = 'absolute';
+              dragGhost.style.top = '-1000px';
+              document.body.appendChild(dragGhost);
+              e.dataTransfer.setDragImage(dragGhost, 0, 0);
+              
+              setTimeout(() => document.body.removeChild(dragGhost), 100);
+            }}
             onClick={() => {
               if (product.stock > 0) {
                 const existingItem = cartItems.find((item) => item.product.id === product.id);
@@ -95,7 +117,7 @@ export default function ProductGrid() {
               }
             }}
             className={`group bg-white rounded-3xl p-4 shadow-sm border hover:shadow-md transition-all flex flex-col relative
-              ${product.stock <= 0 ? 'opacity-60 cursor-not-allowed border-gray-100' : 'cursor-pointer hover:-translate-y-1 border-gray-50'}
+              ${product.stock <= 0 ? 'opacity-60 cursor-not-allowed border-gray-100' : 'cursor-grab active:cursor-grabbing hover:-translate-y-1 border-gray-50'}
             `}
           >
             {product.stock <= 0 && (

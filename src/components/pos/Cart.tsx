@@ -4,9 +4,10 @@ import { useTransactionStore } from '../../store/useTransactionStore';
 import { formatPHP } from '../../utils/currency';
 import { MinusCircle, AddCircle, TrashBinTrash, BillList } from '@solar-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useInventoryStore } from '../../store/useInventoryStore';
 
 export default function Cart() {
-  const { items, updateQuantity, clearCart } = useCartStore();
+  const { items, updateQuantity, clearCart, removeItem } = useCartStore();
   const addTransaction = useTransactionStore((state) => state.addTransaction);
   
   // Calculate totals inline since Zustand getters aren't reactive when destructured
@@ -33,6 +34,7 @@ export default function Cart() {
   const [showStockModal, setShowStockModal] = useState(false);
   const [outOfStockItemNames, setOutOfStockItemNames] = useState<string[]>([]);
   const [showUndoModal, setShowUndoModal] = useState(false);
+  const [dragCounter, setDragCounter] = useState(0);
 
   // If items are added to the cart while we are showing success, clear it immediately
   useEffect(() => {
@@ -132,7 +134,42 @@ export default function Cart() {
     <motion.div 
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="w-full lg:w-96 bg-white rounded-3xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden"
+      className={`w-full lg:w-96 bg-white rounded-3xl shadow-sm border flex flex-col h-full overflow-hidden transition-all duration-200 ${dragCounter > 0 ? 'border-primary-400 border-2 shadow-lg bg-primary-50/10' : 'border-gray-100'}`}
+      onDragEnter={(e: React.DragEvent) => {
+        if (e.dataTransfer.types.includes('product_id')) {
+          e.preventDefault();
+          setDragCounter(prev => prev + 1);
+        }
+      }}
+      onDragLeave={(e: React.DragEvent) => {
+        if (e.dataTransfer.types.includes('product_id')) {
+          setDragCounter(prev => Math.max(0, prev - 1));
+        }
+      }}
+      onDragOver={(e: React.DragEvent) => {
+        if (e.dataTransfer.types.includes('product_id')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }
+      }}
+      onDrop={(e: React.DragEvent) => {
+        e.preventDefault();
+        setDragCounter(0);
+        const productId = e.dataTransfer.getData('product_id');
+        if (productId) {
+          const inventoryItems = useInventoryStore.getState().items;
+          const product = inventoryItems.find(p => p.id === productId);
+          if (product && product.stock > 0) {
+            const existingItem = items.find((item) => item.product.id === product.id);
+            if (existingItem && existingItem.quantity >= product.stock) {
+              setOutOfStockItemNames([product.name]);
+              setShowStockModal(true);
+            } else {
+              useCartStore.getState().addItem(product);
+            }
+          }
+        }
+      }}
     >
       {/* Header */}
       <div className="p-6 border-b border-gray-100 flex items-center justify-between">
@@ -177,7 +214,31 @@ export default function Cart() {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
                 key={item.product.id} 
-                className="flex gap-3 bg-white p-3 rounded-2xl border border-gray-50 shadow-sm"
+                draggable="true"
+                onDragStart={(e: React.DragEvent) => {
+                  e.dataTransfer.setData('cart_item_id', item.product.id);
+                  e.dataTransfer.effectAllowed = 'move';
+                  
+                  // Create a custom drag image to make it look nicer
+                  const dragGhost = document.createElement('div');
+                  dragGhost.textContent = `Remove ${item.product.name}`;
+                  dragGhost.style.background = '#ef4444';
+                  dragGhost.style.color = 'white';
+                  dragGhost.style.padding = '8px 16px';
+                  dragGhost.style.borderRadius = '16px';
+                  dragGhost.style.position = 'absolute';
+                  dragGhost.style.top = '-1000px';
+                  document.body.appendChild(dragGhost);
+                  e.dataTransfer.setDragImage(dragGhost, 0, 0);
+                  
+                  setTimeout(() => document.body.removeChild(dragGhost), 100);
+                }}
+                onDragEnd={(e: React.DragEvent) => {
+                  if (e.dataTransfer.dropEffect === 'none') {
+                    removeItem(item.product.id);
+                  }
+                }}
+                className="flex gap-3 bg-white p-3 rounded-2xl border border-gray-50 shadow-sm cursor-grab active:cursor-grabbing"
               >
                 <img src={item.product.image} alt={item.product.name} className="w-16 h-16 rounded-xl object-cover bg-gray-100" />
                 <div className="flex-1 flex flex-col justify-between">
