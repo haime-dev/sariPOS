@@ -21,7 +21,7 @@ interface ExpenseStore {
   removeExpensesByDate: (date: string) => void;
 }
 
-export const useExpenseStore = create<ExpenseStore>((set) => ({
+export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   expenses: [],
   fetchExpenses: async () => {
     const { data, error } = await supabase
@@ -84,7 +84,7 @@ export const useExpenseStore = create<ExpenseStore>((set) => ({
     }
   },
   deleteExpense: async (id) => {
-    const expenseToDelete = get().expenses.find(e => e.id === id);
+    const expenseToDelete = get().expenses.find((e: any) => e.id === id);
     const { error } = await supabase
       .from('expenses')
       .delete()

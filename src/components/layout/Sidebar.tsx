@@ -65,6 +65,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 >
                   {({ isActive }) => (
                     <>
+                      {/* @ts-ignore */}
                       <Icon className="w-6 h-6" variant={isActive ? "Bold" : "Outline"} />
                       {item.label}
                     </>

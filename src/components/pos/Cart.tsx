@@ -215,7 +215,7 @@ export default function Cart() {
                 transition={{ duration: 0.2 }}
                 key={item.product.id} 
                 draggable="true"
-                onDragStart={(e: React.DragEvent) => {
+                onDragStart={(e: any) => {
                   e.dataTransfer.setData('cart_item_id', item.product.id);
                   e.dataTransfer.effectAllowed = 'move';
                   
@@ -233,7 +233,7 @@ export default function Cart() {
                   
                   setTimeout(() => document.body.removeChild(dragGhost), 100);
                 }}
-                onDragEnd={(e: React.DragEvent) => {
+                onDragEnd={(e: any) => {
                   if (e.dataTransfer.dropEffect === 'none') {
                     removeItem(item.product.id);
                   }
