@@ -970,6 +970,66 @@ export default function Dashboard() {
           isPositive 
           icon={<Wallet className="w-5 h-5 text-blue-400" />} 
           onMouseEnter={() => setShowUnusedCapitalBreakdown(true)}
+          onMouseLeave={() => setShowUnusedCapitalBreakdown(false)}
+          customPopup={showUnusedCapitalBreakdown ? (
+              <>
+              <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="bg-blue-100 p-2 rounded-xl text-blue-500">
+                    <Box className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-medium text-gray-900 font-outfit">Top 20 Least Selling</h2>
+                    <p className="text-xs text-gray-500 font-medium">By items sold</p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto p-4 custom-scrollbar">
+                <div className="space-y-2">
+                  {(() => {
+                    const top20LeastSelling = [...inventoryItems]
+                      .map(product => {
+                        const salesQty = statCardTransactions.reduce((acc, t) => {
+                          const itemInTransaction = t.items.find((i: any) => i.product.id === product.id);
+                          return acc + (itemInTransaction ? itemInTransaction.quantity : 0);
+                        }, 0);
+                        return { ...product, salesQty };
+                      })
+                      .sort((a, b) => a.salesQty - b.salesQty)
+                      .slice(0, 20);
+                      
+                    const totalUnusedCapitalTop20 = top20LeastSelling.reduce((acc, p) => acc + ((p.original_price || 0) * p.stock), 0);
+
+                    return (
+                      <>
+                        <div className="flex justify-between items-center mb-3 bg-blue-50 p-2.5 rounded-xl border border-blue-100 shrink-0">
+                          <span className="text-sm font-semibold text-blue-800">Total Unused (Top 20)</span>
+                          <span className="font-bold text-blue-900 text-base">{formatPHP(totalUnusedCapitalTop20)}</span>
+                        </div>
+                        {top20LeastSelling.map((product, idx) => (
+                          <div key={product.id} className="flex items-center justify-between p-2.5 rounded-2xl bg-gray-50 border border-gray-100 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 font-bold flex items-center justify-center text-xs shadow-sm shrink-0">
+                                {idx + 1}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-gray-900 text-sm truncate max-w-[150px]" title={product.name}>{product.name}</span>
+                                <span className="text-[10px] text-gray-500">{product.stock} in stock</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end shrink-0">
+                              <span className="font-bold text-gray-900 text-sm">{formatPHP((product.original_price || 0) * product.stock)}</span>
+                              <span className="text-[10px] text-primary-500">{product.salesQty} sold</span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+              </>
+          ) : null}
         />
         <StatCard 
           isSmall
@@ -981,6 +1041,62 @@ export default function Dashboard() {
           isPositive={unpaidGrowth.isPositive} 
           icon={<Wallet className="w-5 h-5 text-danger" />} 
           onMouseEnter={() => setShowUnpaidBreakdown(true)}
+          onMouseLeave={() => setShowUnpaidBreakdown(false)}
+          customPopup={showUnpaidBreakdown ? (
+            <>
+              <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="bg-red-100 p-2 rounded-xl text-red-500">
+                    <Wallet className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-medium text-gray-900 font-outfit">Unpaid Breakdown</h2>
+                    <p className="text-xs text-gray-500 font-medium">Total: <span className="text-danger font-bold">{formatPHP(totalUnpaidAmount)}</span></p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto p-4 custom-scrollbar">
+                {totalUnpaidAmount === 0 ? (
+                  <div className="text-center text-gray-500 py-8 text-sm">
+                    <p>No unpaid amounts for the selected period.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {statCardTransactions
+                      .filter(t => t.total > t.amount_paid)
+                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .map((t) => (
+                      <div 
+                        key={t.id} 
+                        onClick={() => {
+                          setShowUnpaidBreakdown(false);
+                          setIsEditingPayment(true);
+                          setSelectedOrder(t);
+                          setEditPaymentStatus(t.payment || 'Paid');
+                          setEditAmountPaid(t.amount_paid?.toString() || t.total.toString());
+                        }}
+                        className="flex items-center justify-between p-2.5 rounded-2xl bg-gray-50 border border-gray-100 hover:border-red-200 transition-colors group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-red-100 text-red-600 font-bold flex items-center justify-center text-sm shadow-sm shrink-0">
+                            {t.customer.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-gray-900 text-sm group-hover:text-red-700 transition-colors truncate max-w-[120px]">{t.customer}</span>
+                            <span className="text-[10px] text-gray-500">{new Date(t.date).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className="font-bold text-danger text-base">{formatPHP(t.total - t.amount_paid)}</span>
+                          <span className="text-[10px] text-primary-600 group-hover:underline">Edit Payment</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : null}
         />
         <StatCard 
           isSmall
@@ -1830,174 +1946,12 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      {/* Unpaid Breakdown Modal */}
-      <AnimatePresence>
-        {showUnpaidBreakdown && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowUnpaidBreakdown(false)}
-              className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-md bg-white rounded-3xl shadow-xl relative z-10 overflow-hidden flex flex-col max-h-[80vh]"
-            >
-              <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                <div className="flex items-center gap-3">
-                  <div className="bg-red-100 p-2 rounded-xl text-red-500">
-                    <Wallet className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-medium text-gray-900 font-outfit">Unpaid Breakdown</h2>
-                    <p className="text-sm text-gray-500 font-medium">Total: <span className="text-danger font-bold">{formatPHP(totalUnpaidAmount)}</span></p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowUnpaidBreakdown(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <CloseCircle className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <div className="flex-1 overflow-auto p-6">
-                {totalUnpaidAmount === 0 ? (
-                  <div className="text-center text-gray-500 py-8">
-                    <p>No unpaid amounts for the selected period.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {statCardTransactions
-                      .filter(t => t.total > t.amount_paid)
-                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                      .map((t) => (
-                      <div 
-                        key={t.id} 
-                        onClick={() => {
-                          setShowUnpaidBreakdown(false);
-                          setIsEditingPayment(true);
-                          setSelectedOrder(t);
-                          setEditPaymentStatus(t.payment || 'Paid');
-                          setEditAmountPaid(t.amount_paid?.toString() || t.total.toString());
-                        }}
-                        className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-100 hover:border-red-200 transition-colors group cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-red-100 text-red-600 font-bold flex items-center justify-center text-sm shadow-sm">
-                            {t.customer.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-gray-900 group-hover:text-red-700 transition-colors">{t.customer}</span>
-                            <span className="text-[10px] text-gray-500">{new Date(t.date).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end">
-                          <span className="font-bold text-danger text-lg">{formatPHP(t.total - t.amount_paid)}</span>
-                          <span className="text-xs text-primary-600 group-hover:underline">Edit Payment</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
-      {/* Unused Capital Breakdown Modal */}
-      <AnimatePresence>
-        {showUnusedCapitalBreakdown && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowUnusedCapitalBreakdown(false)}
-              className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-md bg-white rounded-3xl shadow-xl relative z-10 overflow-hidden flex flex-col max-h-[80vh]"
-            >
-              <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-100 p-2 rounded-xl text-blue-500">
-                    <Box className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-medium text-gray-900 font-outfit">Top 20 Least Selling</h2>
-                    <p className="text-sm text-gray-500 font-medium">By items sold</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setShowUnusedCapitalBreakdown(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <CloseCircle className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <div className="flex-1 overflow-auto p-6">
-                <div className="space-y-3">
-                  {(() => {
-                    const top20LeastSelling = [...inventoryItems]
-                      .map(product => {
-                        const salesQty = statCardTransactions.reduce((acc, t) => {
-                          const itemInTransaction = t.items.find((i: any) => i.product.id === product.id);
-                          return acc + (itemInTransaction ? itemInTransaction.quantity : 0);
-                        }, 0);
-                        return { ...product, salesQty };
-                      })
-                      .sort((a, b) => a.salesQty - b.salesQty)
-                      .slice(0, 20);
-                      
-                    const totalUnusedCapitalTop20 = top20LeastSelling.reduce((acc, p) => acc + ((p.original_price || 0) * p.stock), 0);
-
-                    return (
-                      <>
-                        <div className="flex justify-between items-center mb-4 bg-blue-50 p-3 rounded-xl border border-blue-100">
-                          <span className="font-semibold text-blue-800">Total Unused Capital (Top 20)</span>
-                          <span className="font-bold text-blue-900 text-lg">{formatPHP(totalUnusedCapitalTop20)}</span>
-                        </div>
-                        {top20LeastSelling.map((product, idx) => (
-                          <div key={product.id} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-100 transition-colors">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-600 font-bold flex items-center justify-center text-sm shadow-sm">
-                                {idx + 1}
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="font-semibold text-gray-900 truncate max-w-[150px]">{product.name}</span>
-                                <span className="text-[10px] text-gray-500">{product.stock} in stock</span>
-                              </div>
-                            </div>
-                            <div className="flex flex-col items-end">
-                              <span className="font-bold text-gray-900">{product.salesQty} Sold</span>
-                              <span className="text-xs text-blue-500 font-medium">{formatPHP((product.original_price || 0) * product.stock)} Unused</span>
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }
 
-function StatCard({ title, value, unit, growth, percentage, isPositive, icon, isSmall = false, onClick, onMouseEnter, onMouseLeave, showAverage, averageValue, averageLabel, description }: any) {
+function StatCard({ title, value, unit, growth, percentage, isPositive, icon, isSmall = false, onClick, onMouseEnter, onMouseLeave, showAverage, averageValue, averageLabel, description, customPopup }: any) {
   const isNegativeValue = typeof value === 'string' && value.includes('-');
 
   return (
@@ -2040,6 +1994,17 @@ function StatCard({ title, value, unit, growth, percentage, isPositive, icon, is
       </div>
 
       <AnimatePresence>
+        {customPopup && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="absolute left-0 sm:-left-20 top-[105%] w-[350px] sm:w-[400px] bg-white rounded-3xl border border-primary-200 shadow-2xl z-[100] cursor-default max-h-[60vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {customPopup}
+          </motion.div>
+        )}
         {showAverage && (
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
