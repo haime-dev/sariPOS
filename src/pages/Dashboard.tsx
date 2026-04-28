@@ -221,6 +221,7 @@ export default function Dashboard() {
   const [paymentFilter, setPaymentFilter] = useState<string>('All');
   const [dateFilter, setDateFilter] = useState<string>('All');
   const [customerFilter, setCustomerFilter] = useState<string>('All');
+  const [orderProductSearch, setOrderProductSearch] = useState<string>('');
   
   const requestSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -266,8 +267,9 @@ export default function Dashboard() {
     const matchesPayment = paymentFilter === 'All' ? true : t.payment === paymentFilter;
     const matchesExactDate = dateFilter === 'All' ? true : d.toLocaleDateString() === dateFilter;
     const matchesCustomer = !customerFilter || customerFilter === 'All' ? true : t.customer.toLowerCase().includes(customerFilter.toLowerCase());
+    const matchesProduct = !orderProductSearch ? true : t.items.some((item: any) => item.product.name.toLowerCase().includes(orderProductSearch.toLowerCase()));
     
-    return matchesDateRange && matchesPayment && matchesExactDate && matchesCustomer;
+    return matchesDateRange && matchesPayment && matchesExactDate && matchesCustomer && matchesProduct;
   }).sort((a, b) => {
     if (!sortConfig) return 0;
     const { key, direction } = sortConfig;
@@ -1338,6 +1340,16 @@ export default function Dashboard() {
                    className="bg-transparent border-none focus:outline-none text-sm"
                  />
                </div>
+             </div>
+             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200 text-text-main">
+               <Magnifer className="w-4 h-4 text-gray-400" />
+               <input 
+                 type="text" 
+                 placeholder="Search products in orders..."
+                 value={orderProductSearch}
+                 onChange={(e) => setOrderProductSearch(e.target.value)}
+                 className="bg-transparent border-none focus:outline-none text-sm w-48"
+               />
              </div>
            </div>
         </div>

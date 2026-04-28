@@ -16,6 +16,7 @@ export default function Inventory() {
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showNegativeMarginWarning, setShowNegativeMarginWarning] = useState(false);
   
   const { items: inventory, addItem, removeItem, updateItem, fetchItems } = useInventoryStore();
 
@@ -99,19 +100,9 @@ export default function Inventory() {
     return 0;
   });
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const executeSave = () => {
     const parsedPrice = typeof newItem.price === 'string' ? parseFloat(newItem.price as string) || 0 : newItem.price;
     const parsedOriginalPrice = typeof newItem.originalPrice === 'string' ? parseFloat(newItem.originalPrice as string) || 0 : newItem.originalPrice;
-    
-    if (parsedOriginalPrice > 0 && parsedPrice < parsedOriginalPrice) {
-      const proceed = window.confirm("The selling price is lower than the original price, resulting in a negative profit margin. Are you sure you want to proceed?");
-      if (!proceed) {
-        return;
-      }
-    }
-
     const parsedStock = typeof newItem.stock === 'string' ? parseInt(newItem.stock as string) || 0 : newItem.stock;
 
     const statusValue: 'In Stock' | 'Low Stock' | 'Out of Stock' = 
@@ -136,6 +127,7 @@ export default function Inventory() {
     }
 
     setIsAddModalOpen(false);
+    setShowNegativeMarginWarning(false);
     setEditingItemId(null);
     setNewItem({
       name: '',
@@ -147,6 +139,20 @@ export default function Inventory() {
       status: 'In Stock',
       image: 'https://images.unsplash.com/photo-1549903072-7e6e0b3c2242?auto=format&fit=crop&q=80&w=200&h=200'
     });
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const parsedPrice = typeof newItem.price === 'string' ? parseFloat(newItem.price as string) || 0 : newItem.price;
+    const parsedOriginalPrice = typeof newItem.originalPrice === 'string' ? parseFloat(newItem.originalPrice as string) || 0 : newItem.originalPrice;
+    
+    if (parsedOriginalPrice > 0 && parsedPrice < parsedOriginalPrice) {
+      setShowNegativeMarginWarning(true);
+      return;
+    }
+
+    executeSave();
   };
 
   const handleEditClick = (item: any) => {
@@ -166,6 +172,7 @@ export default function Inventory() {
 
   const handleCloseModal = () => {
     setIsAddModalOpen(false);
+    setShowNegativeMarginWarning(false);
     setEditingItemId(null);
     setNewItem({
       name: '',
@@ -581,6 +588,54 @@ export default function Inventory() {
                     className="flex-1 py-3 px-4 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-colors font-medium shadow-lg shadow-red-500/30"
                   >
                     Delete
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Negative Margin Warning Modal */}
+      <AnimatePresence>
+        {showNegativeMarginWarning && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowNegativeMarginWarning(false)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-sm bg-white rounded-3xl shadow-2xl relative z-[61] overflow-hidden"
+            >
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2 font-outfit">Negative Profit Margin</h3>
+                <p className="text-gray-500 text-sm mb-6">
+                  The selling price is lower than the original price, resulting in a loss for each sale. Are you sure you want to proceed?
+                </p>
+                
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowNegativeMarginWarning(false)}
+                    className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 rounded-2xl hover:bg-gray-200 transition-colors font-medium"
+                  >
+                    Go Back
+                  </button>
+                  <button 
+                    onClick={executeSave}
+                    className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-2xl hover:bg-orange-600 transition-colors font-medium shadow-lg shadow-orange-500/30"
+                  >
+                    Proceed Anyway
                   </button>
                 </div>
               </div>
