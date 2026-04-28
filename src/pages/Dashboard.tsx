@@ -265,7 +265,7 @@ export default function Dashboard() {
     // Header filters
     const matchesPayment = paymentFilter === 'All' ? true : t.payment === paymentFilter;
     const matchesExactDate = dateFilter === 'All' ? true : d.toLocaleDateString() === dateFilter;
-    const matchesCustomer = customerFilter === 'All' ? true : t.customer === customerFilter;
+    const matchesCustomer = !customerFilter || customerFilter === 'All' ? true : t.customer.toLowerCase().includes(customerFilter.toLowerCase());
     
     return matchesDateRange && matchesPayment && matchesExactDate && matchesCustomer;
   }).sort((a, b) => {
@@ -499,28 +499,77 @@ export default function Dashboard() {
   
   let divisor = 1;
   let avgLabel = "";
+  let overallLabel = "";
   let avgSymbol = "/d";
   if (datePeriod === 'Daily') {
     divisor = 7;
-    avgLabel = "day (this period)";
+    avgLabel = "day (last 7 days)";
+    overallLabel = "overall (last 7 days)";
     avgSymbol = "/d";
   } else if (datePeriod === 'Weekly') {
     divisor = 4;
-    avgLabel = "week (this period)";
+    avgLabel = "week (last 4 weeks)";
+    overallLabel = "overall (last 4 weeks)";
     avgSymbol = "/w";
   } else if (datePeriod === 'Monthly') {
     divisor = 12;
-    avgLabel = "month (this period)";
+    avgLabel = "month (last 12 months)";
+    overallLabel = "overall (last 12 months)";
     avgSymbol = "/mo";
   } else if (datePeriod === 'All Time') {
     divisor = absoluteDaysSinceFirstItem;
     avgLabel = "day (all time)";
+    overallLabel = "overall (all time)";
     avgSymbol = "/d";
   }
   
-  const totalSalesAvg = totalSales / divisor;
-  const netProfitAvg = netProfit / divisor;
-  const valueOfBusinessAvg = valueOfBusiness / divisor;
+  // Historical Period for Averages
+  const historicalStart = new Date();
+  if (datePeriod === 'Daily') {
+    historicalStart.setDate(historicalStart.getDate() - 6);
+    historicalStart.setHours(0,0,0,0);
+  } else if (datePeriod === 'Weekly') {
+    historicalStart.setDate(historicalStart.getDate() - 27);
+    historicalStart.setHours(0,0,0,0);
+  } else if (datePeriod === 'Monthly') {
+    historicalStart.setMonth(historicalStart.getMonth() - 11);
+    historicalStart.setDate(1);
+    historicalStart.setHours(0,0,0,0);
+  } else {
+    historicalStart.setTime(0);
+  }
+
+  const historicalTransactions = transactions.filter(t => {
+    const d = new Date(t.date);
+    return d >= historicalStart && d <= new Date();
+  });
+
+  const historicalExpenses = expenses.filter(e => {
+    if (e.category === 'Store Use') return false;
+    const d = new Date(e.date);
+    return d >= historicalStart && d <= new Date();
+  });
+
+  const histTotalSales = historicalTransactions.reduce((sum, t) => sum + (t.customer === 'Family Expense' ? 0 : t.amount_paid), 0);
+  const histTotalCapital = historicalTransactions.reduce((sum, t) => {
+    const ratioPaid = t.total > 0 ? t.amount_paid / t.total : 1;
+    return sum + t.items.reduce((itemSum, item) => {
+      const isExpense = t.customer === 'Family Expense' || (item.product.price === 0 && item.quantity > 0);
+      const origPrice = item.product.original_price_at_time ?? item.product.original_price ?? 0;
+      const effectiveRatioPaid = isExpense ? 1 : ratioPaid;
+      return itemSum + (origPrice * item.quantity * effectiveRatioPaid);
+    }, 0);
+  }, 0);
+  const histNetProfit = histTotalSales - histTotalCapital;
+  
+  const histTotalNonStoreExpense = historicalExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const histValueOfBusiness = histNetProfit - histTotalNonStoreExpense;
+  const histAvailableCash = histValueOfBusiness + histTotalCapital;
+  const historicalProfitMargin = histTotalCapital > 0 ? Math.round((histNetProfit / histTotalCapital) * 100) : 0;
+
+  const totalSalesAvg = histTotalSales / divisor;
+  const netProfitAvg = histNetProfit / divisor;
+  const valueOfBusinessAvg = histValueOfBusiness / divisor;
 
   const salesGrowth = calculateGrowth(totalSales, prevTotalSales);
   const capitalGrowth = calculateGrowth(totalCapital, prevTotalCapital);
@@ -536,24 +585,54 @@ export default function Dashboard() {
 
   const availableCash = valueOfBusiness + totalCapital;
   const prevAvailableCash = prevValueOfBusiness + prevTotalCapital;
-  const availableCashAvg = availableCash / divisor;
+  const availableCashAvg = histAvailableCash / divisor;
   const availableCashGrowth = calculateGrowth(availableCash, prevAvailableCash);
 
+  const prevHistoricalRange = getPreviousDateRange(datePeriod, historicalStart);
+  
+  const prevHistoricalTransactions = transactions.filter(t => {
+    const d = new Date(t.date);
+    return d >= prevHistoricalRange.start && d <= prevHistoricalRange.end;
+  });
+
+  const prevHistoricalExpenses = expenses.filter(e => {
+    if (e.category === 'Store Use') return false;
+    const d = new Date(e.date);
+    return d >= prevHistoricalRange.start && d <= prevHistoricalRange.end;
+  });
+
+  const prevHistTotalSales = prevHistoricalTransactions.reduce((sum, t) => sum + (t.customer === 'Family Expense' ? 0 : t.amount_paid), 0);
+  const prevHistTotalCapital = prevHistoricalTransactions.reduce((sum, t) => {
+    const ratioPaid = t.total > 0 ? t.amount_paid / t.total : 1;
+    return sum + t.items.reduce((itemSum, item) => {
+      const isExpense = t.customer === 'Family Expense' || (item.product.price === 0 && item.quantity > 0);
+      const origPrice = item.product.original_price_at_time ?? item.product.original_price ?? 0;
+      const effectiveRatioPaid = isExpense ? 1 : ratioPaid;
+      return itemSum + (origPrice * item.quantity * effectiveRatioPaid);
+    }, 0);
+  }, 0);
+  const prevHistNetProfit = prevHistTotalSales - prevHistTotalCapital;
+  
+  const prevHistTotalNonStoreExpense = prevHistoricalExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const prevHistValueOfBusiness = prevHistNetProfit - prevHistTotalNonStoreExpense;
+  const prevHistAvailableCash = prevHistValueOfBusiness + prevHistTotalCapital;
+  const prevHistoricalProfitMargin = prevHistTotalCapital > 0 ? Math.round((prevHistNetProfit / prevHistTotalCapital) * 100) : 0;
+
   const previousGraphTotalValue = 
-    graphMetric === 'Sales' ? prevTotalSales :
-    graphMetric === 'Net Profit' ? prevNetProfit :
-    graphMetric === 'Value of Business' ? prevValueOfBusiness :
-    graphMetric === 'Used Capital' ? prevTotalCapital :
-    graphMetric === 'Profit Margin' ? prevProfitMargin : 
-    graphMetric === 'Available Cash' ? prevAvailableCash : 0;
+    graphMetric === 'Sales' ? prevHistTotalSales :
+    graphMetric === 'Net Profit' ? prevHistNetProfit :
+    graphMetric === 'Value of Business' ? prevHistValueOfBusiness :
+    graphMetric === 'Used Capital' ? prevHistTotalCapital :
+    graphMetric === 'Profit Margin' ? prevHistoricalProfitMargin : 
+    graphMetric === 'Available Cash' ? prevHistAvailableCash : 0;
 
   const currentGraphTotalValue = 
-    graphMetric === 'Sales' ? totalSales :
-    graphMetric === 'Net Profit' ? netProfit :
-    graphMetric === 'Value of Business' ? valueOfBusiness :
-    graphMetric === 'Used Capital' ? totalCapital :
-    graphMetric === 'Profit Margin' ? profitMargin :
-    graphMetric === 'Available Cash' ? availableCash : 0;
+    graphMetric === 'Sales' ? histTotalSales :
+    graphMetric === 'Net Profit' ? histNetProfit :
+    graphMetric === 'Value of Business' ? histValueOfBusiness :
+    graphMetric === 'Used Capital' ? histTotalCapital :
+    graphMetric === 'Profit Margin' ? historicalProfitMargin :
+    graphMetric === 'Available Cash' ? histAvailableCash : 0;
 
   const growthAmount = currentGraphTotalValue - previousGraphTotalValue;
   const isPositiveGrowth = growthAmount >= 0;
@@ -799,7 +878,8 @@ export default function Dashboard() {
           percentage={`${Math.abs(availableCashGrowth.percentage).toFixed(1)}%`} 
           isPositive={availableCashGrowth.isPositive} 
           icon={<WadOfMoney className="w-8 h-8 text-emerald-500" />} 
-          onClick={() => setShowAverageFor(showAverageFor === 'Available Cash' ? null : 'Available Cash')}
+          onMouseEnter={() => setShowAverageFor('Available Cash')}
+          onMouseLeave={() => setShowAverageFor(null)}
           showAverage={showAverageFor === 'Available Cash'}
           averageValue={formatPHP(availableCashAvg)}
           averageLabel={avgLabel}
@@ -813,7 +893,8 @@ export default function Dashboard() {
           percentage={`${Math.abs(valueOfBusinessGrowth.percentage).toFixed(1)}%`} 
           isPositive={valueOfBusinessGrowth.isPositive} 
           icon={<WadOfMoney className="w-8 h-8 text-indigo-500" />} 
-          onClick={() => setShowAverageFor(showAverageFor === 'Value of Business' ? null : 'Value of Business')}
+          onMouseEnter={() => setShowAverageFor('Value of Business')}
+          onMouseLeave={() => setShowAverageFor(null)}
           showAverage={showAverageFor === 'Value of Business'}
           averageValue={formatPHP(valueOfBusinessAvg)}
           averageLabel={avgLabel}
@@ -827,7 +908,8 @@ export default function Dashboard() {
           percentage={`${Math.abs(profitGrowth.percentage).toFixed(1)}%`} 
           isPositive={profitGrowth.isPositive} 
           icon={<WadOfMoney className="w-8 h-8 text-success" />} 
-          onClick={() => setShowAverageFor(showAverageFor === 'Net Profit' ? null : 'Net Profit')}
+          onMouseEnter={() => setShowAverageFor('Net Profit')}
+          onMouseLeave={() => setShowAverageFor(null)}
           showAverage={showAverageFor === 'Net Profit'}
           averageValue={formatPHP(netProfitAvg)}
           averageLabel={avgLabel}
@@ -841,10 +923,11 @@ export default function Dashboard() {
           percentage={`${Math.abs(profitMarginGrowth.percentage).toFixed(1)}%`} 
           isPositive={profitMarginGrowth.isPositive} 
           icon={<GraphUp className="w-8 h-8 text-purple-500" />} 
-          onClick={() => setShowAverageFor(showAverageFor === 'Profit Margin' ? null : 'Profit Margin')}
+          onMouseEnter={() => setShowAverageFor('Profit Margin')}
+          onMouseLeave={() => setShowAverageFor(null)}
           showAverage={showAverageFor === 'Profit Margin'}
-          averageValue={`${profitMargin}%`}
-          averageLabel="overall (this period)"
+          averageValue={`${historicalProfitMargin}%`}
+          averageLabel={overallLabel}
           description="The percentage of Net Profit generated from the Used Capital. Measures how efficiently your capital is generating profit."
         />
       </div>
@@ -860,7 +943,8 @@ export default function Dashboard() {
           percentage={`${Math.abs(salesGrowth.percentage).toFixed(1)}%`} 
           isPositive={salesGrowth.isPositive} 
           icon={<ChartSquare className="w-5 h-5 text-primary-500" />} 
-          onClick={() => setShowAverageFor(showAverageFor === 'Total Sales' ? null : 'Total Sales')}
+          onMouseEnter={() => setShowAverageFor('Total Sales')}
+          onMouseLeave={() => setShowAverageFor(null)}
           showAverage={showAverageFor === 'Total Sales'}
           averageValue={formatPHP(totalSalesAvg)}
           averageLabel={avgLabel}
@@ -885,7 +969,7 @@ export default function Dashboard() {
           percentage="0.0%" 
           isPositive 
           icon={<Wallet className="w-5 h-5 text-blue-400" />} 
-          onClick={() => setShowUnusedCapitalBreakdown(true)}
+          onMouseEnter={() => setShowUnusedCapitalBreakdown(true)}
         />
         <StatCard 
           isSmall
@@ -896,7 +980,7 @@ export default function Dashboard() {
           percentage={`${Math.abs(unpaidGrowth.percentage).toFixed(1)}%`} 
           isPositive={unpaidGrowth.isPositive} 
           icon={<Wallet className="w-5 h-5 text-danger" />} 
-          onClick={() => setShowUnpaidBreakdown(true)}
+          onMouseEnter={() => setShowUnpaidBreakdown(true)}
         />
         <StatCard 
           isSmall
@@ -1189,14 +1273,17 @@ export default function Dashboard() {
                     <span className="cursor-pointer hover:text-primary-600 transition-colors flex items-center gap-1" onClick={() => requestSort('customer')}>
                       Customer Name {sortConfig?.key === 'customer' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
                     </span>
-                    <select 
-                      value={customerFilter}
+                    <input 
+                      type="text"
+                      list="customer-list"
+                      placeholder="Search..."
+                      value={customerFilter === 'All' ? '' : customerFilter}
                       onChange={(e) => setCustomerFilter(e.target.value)}
-                      className="bg-transparent text-xs font-semibold outline-none cursor-pointer text-gray-700 max-w-[100px] truncate"
-                    >
-                      <option value="All">All Customers</option>
-                      {uniqueCustomers.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                      className="bg-transparent text-xs font-semibold outline-none text-gray-700 max-w-[100px] placeholder-gray-400 border-b border-transparent focus:border-gray-300 transition-colors px-1"
+                    />
+                    <datalist id="customer-list">
+                      {uniqueCustomers.map(c => <option key={c} value={c} />)}
+                    </datalist>
                   </div>
                 </th>
                 <th className="pb-4 pt-4 cursor-pointer" onClick={() => requestSort('amount_paid')}>
@@ -1526,9 +1613,34 @@ export default function Dashboard() {
                 </svg>
               </div>
               <h3 className="text-xl font-medium text-center text-gray-900 mb-2">Undo Transaction</h3>
-              <p className="text-sm text-center text-gray-500 mb-6">
-                Are you sure you want to undo {transactionsToUndo.length === 1 ? `transaction ${transactionsToUndo[0]}` : `${transactionsToUndo.length} transactions`}? This will reverse the sale and restore inventory.
+              <p className="text-sm text-center text-gray-500 mb-4">
+                Are you sure you want to undo {transactionsToUndo.length === 1 ? `transaction ${transactionsToUndo[0].slice(0, 8)}...` : `${transactionsToUndo.length} transactions`}? This will reverse the sale and restore inventory.
               </p>
+              
+              {transactionsToUndo.length > 0 && (
+                <div className="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-100 max-h-60 overflow-y-auto hide-scrollbar text-left flex flex-col gap-4">
+                  {transactionsToUndo.map((txId) => {
+                    const transactionToUndo = transactions.find((t: any) => t.id === txId);
+                    if (!transactionToUndo) return null;
+                    return (
+                      <div key={txId} className="flex flex-col gap-2 pb-4 border-b border-gray-200 last:border-0 last:pb-0">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-semibold text-gray-500">Order ID: {transactionToUndo.id.slice(0, 8)}...</span>
+                          <span className="text-xs font-bold text-gray-900">{formatPHP(transactionToUndo.total)}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {transactionToUndo.items.map((item: any, idx: number) => (
+                            <div key={idx} className="flex justify-between text-sm">
+                              <span className="text-gray-700 truncate pr-2">{item.quantity}x {item.product.name}</span>
+                              <span className="text-gray-500 whitespace-nowrap">{formatPHP((item.isExpense || item.product.price === 0) ? 0 : (item.product.price_at_time || item.product.price) * item.quantity)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               
               <div className="flex gap-3">
                 <button 
@@ -1821,7 +1933,7 @@ export default function Dashboard() {
                     <Box className="w-6 h-6" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-medium text-gray-900 font-outfit">Top 10 Least Selling</h2>
+                    <h2 className="text-xl font-medium text-gray-900 font-outfit">Top 20 Least Selling</h2>
                     <p className="text-sm text-gray-500 font-medium">By items sold</p>
                   </div>
                 </div>
@@ -1835,33 +1947,46 @@ export default function Dashboard() {
               
               <div className="flex-1 overflow-auto p-6">
                 <div className="space-y-3">
-                  {[...inventoryItems]
-                    .map(product => {
-                      const salesQty = statCardTransactions.reduce((acc, t) => {
-                        const itemInTransaction = t.items.find((i: any) => i.product.id === product.id);
-                        return acc + (itemInTransaction ? itemInTransaction.quantity : 0);
-                      }, 0);
-                      return { ...product, salesQty };
-                    })
-                    .sort((a, b) => a.salesQty - b.salesQty)
-                    .slice(0, 10)
-                    .map((product, idx) => (
-                    <div key={product.id} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-100 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-600 font-bold flex items-center justify-center text-sm shadow-sm">
-                          {idx + 1}
+                  {(() => {
+                    const top20LeastSelling = [...inventoryItems]
+                      .map(product => {
+                        const salesQty = statCardTransactions.reduce((acc, t) => {
+                          const itemInTransaction = t.items.find((i: any) => i.product.id === product.id);
+                          return acc + (itemInTransaction ? itemInTransaction.quantity : 0);
+                        }, 0);
+                        return { ...product, salesQty };
+                      })
+                      .sort((a, b) => a.salesQty - b.salesQty)
+                      .slice(0, 20);
+                      
+                    const totalUnusedCapitalTop20 = top20LeastSelling.reduce((acc, p) => acc + ((p.original_price || 0) * p.stock), 0);
+
+                    return (
+                      <>
+                        <div className="flex justify-between items-center mb-4 bg-blue-50 p-3 rounded-xl border border-blue-100">
+                          <span className="font-semibold text-blue-800">Total Unused Capital (Top 20)</span>
+                          <span className="font-bold text-blue-900 text-lg">{formatPHP(totalUnusedCapitalTop20)}</span>
                         </div>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-gray-900 truncate max-w-[150px]">{product.name}</span>
-                          <span className="text-[10px] text-gray-500">{product.stock} in stock</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <span className="font-bold text-gray-900">{product.salesQty} Sold</span>
-                        <span className="text-xs text-blue-500 font-medium">{formatPHP((product.original_price || 0) * product.stock)} Unused</span>
-                      </div>
-                    </div>
-                  ))}
+                        {top20LeastSelling.map((product, idx) => (
+                          <div key={product.id} className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-100 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-600 font-bold flex items-center justify-center text-sm shadow-sm">
+                                {idx + 1}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-gray-900 truncate max-w-[150px]">{product.name}</span>
+                                <span className="text-[10px] text-gray-500">{product.stock} in stock</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <span className="font-bold text-gray-900">{product.salesQty} Sold</span>
+                              <span className="text-xs text-blue-500 font-medium">{formatPHP((product.original_price || 0) * product.stock)} Unused</span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </motion.div>
@@ -1872,18 +1997,20 @@ export default function Dashboard() {
   );
 }
 
-function StatCard({ title, value, unit, growth, percentage, isPositive, icon, isSmall = false, onClick, showAverage, averageValue, averageLabel, description }: any) {
+function StatCard({ title, value, unit, growth, percentage, isPositive, icon, isSmall = false, onClick, onMouseEnter, onMouseLeave, showAverage, averageValue, averageLabel, description }: any) {
   const isNegativeValue = typeof value === 'string' && value.includes('-');
 
   return (
     <div 
-      className={`bg-white rounded-3xl ${isSmall ? 'p-4' : 'p-6'} shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow relative group ${onClick ? 'cursor-pointer hover:bg-gray-50/50' : 'cursor-default'} h-full`}
+      className={`bg-white rounded-3xl ${isSmall ? 'p-4' : 'p-6'} shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow relative group ${(onClick || onMouseEnter) ? 'cursor-pointer hover:bg-gray-50/50' : 'cursor-default'} h-full`}
       onClick={(e) => {
         if (onClick) {
           e.stopPropagation();
           onClick();
         }
       }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       <div className={`flex items-start justify-between ${isSmall ? 'mb-2' : 'mb-4'}`}>
         <div className={`flex items-center gap-3`}>

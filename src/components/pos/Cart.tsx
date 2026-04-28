@@ -9,6 +9,7 @@ import { useInventoryStore } from '../../store/useInventoryStore';
 export default function Cart() {
   const { items, updateQuantity, clearCart, removeItem } = useCartStore();
   const addTransaction = useTransactionStore((state) => state.addTransaction);
+  const transactions = useTransactionStore((state) => state.transactions);
   
   // Calculate totals inline since Zustand getters aren't reactive when destructured
   const subtotal = items.reduce((sum, item) => sum + (item.isExpense ? 0 : item.product.price * item.quantity), 0);
@@ -34,6 +35,7 @@ export default function Cart() {
   const [showStockModal, setShowStockModal] = useState(false);
   const [outOfStockItemNames, setOutOfStockItemNames] = useState<string[]>([]);
   const [showUndoModal, setShowUndoModal] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
 
   // If items are added to the cart while we are showing success, clear it immediately
@@ -108,6 +110,24 @@ export default function Cart() {
       setOutOfStockItemNames(outOfStockItems.map(i => i.product.name));
       setShowStockModal(true);
       return;
+    }
+
+    if (transactions.length > 0) {
+      const lastOrder = transactions[0];
+      if (items.length === lastOrder.items.length) {
+        let isIdentical = true;
+        for (const item of items) {
+          const match = lastOrder.items.find(i => i.product.id === item.product.id);
+          if (!match || match.quantity !== item.quantity) {
+            isIdentical = false;
+            break;
+          }
+        }
+        if (isIdentical) {
+          setShowDuplicateModal(true);
+          return;
+        }
+      }
     }
 
     await confirmAndPlaceOrder();
@@ -481,15 +501,15 @@ export default function Cart() {
         )}
       </AnimatePresence>
 
-      {/* Undo Modal */}
+      {/* Duplicate Order Modal */}
       <AnimatePresence>
-        {showUndoModal && (
+        {showDuplicateModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowUndoModal(false)}
+              onClick={() => setShowDuplicateModal(false)}
               className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
             />
             <motion.div 
@@ -498,33 +518,102 @@ export default function Cart() {
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               className="relative w-full max-w-sm bg-white rounded-3xl shadow-xl p-6 overflow-hidden"
             >
-              <div className="mx-auto w-12 h-12 bg-danger/10 rounded-full flex items-center justify-center mb-4 text-danger">
+              <div className="mx-auto w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4 text-yellow-500">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-medium text-center text-gray-900 mb-2">Undo Transaction</h3>
+              <h3 className="text-xl font-medium text-center text-gray-900 mb-2">Duplicate Order</h3>
               <p className="text-sm text-center text-gray-500 mb-6">
-                Are you sure you want to undo this transaction? This will reverse the sale and restore inventory.
+                This order is identical to the previous order. Are you sure you want to proceed and create a duplicate order?
               </p>
               
               <div className="flex gap-3">
                 <button 
-                  onClick={() => setShowUndoModal(false)}
+                  onClick={() => setShowDuplicateModal(false)}
                   className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
-                  onClick={executeReverseTransaction}
-                  className="flex-1 px-4 py-2.5 bg-danger text-white rounded-xl font-medium hover:bg-danger/90 transition-colors shadow-sm"
+                  onClick={() => {
+                    setShowDuplicateModal(false);
+                    confirmAndPlaceOrder();
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-yellow-500 text-white rounded-xl font-medium hover:bg-yellow-600 transition-colors shadow-sm"
                 >
-                  Undo Order
+                  Proceed
                 </button>
               </div>
             </motion.div>
           </div>
         )}
+      </AnimatePresence>
+
+      {/* Undo Modal */}
+      <AnimatePresence>
+        {showUndoModal && (() => {
+          const transactionToUndo = transactions.find(t => t.id === lastTransactionId);
+          return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowUndoModal(false)}
+                className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="relative w-full max-w-sm bg-white rounded-3xl shadow-xl p-6 overflow-hidden"
+              >
+                <div className="mx-auto w-12 h-12 bg-danger/10 rounded-full flex items-center justify-center mb-4 text-danger">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-medium text-center text-gray-900 mb-2">Undo Transaction</h3>
+                <p className="text-sm text-center text-gray-500 mb-4">
+                  Are you sure you want to undo this transaction? This will reverse the sale and restore inventory.
+                </p>
+                
+                {transactionToUndo && (
+                  <div className="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-100 max-h-40 overflow-y-auto hide-scrollbar text-left">
+                    <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
+                      <span className="text-xs font-semibold text-gray-500">Order ID: {transactionToUndo.id.slice(0, 8)}...</span>
+                      <span className="text-xs font-bold text-gray-900">{formatPHP(transactionToUndo.total)}</span>
+                    </div>
+                    <div className="space-y-1">
+                      {transactionToUndo.items.map((item: any, idx: number) => (
+                        <div key={idx} className="flex justify-between text-sm">
+                          <span className="text-gray-700 truncate pr-2">{item.quantity}x {item.product.name}</span>
+                          <span className="text-gray-500 whitespace-nowrap">{formatPHP(item.isExpense ? 0 : item.product.price * item.quantity)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowUndoModal(false)}
+                    className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={executeReverseTransaction}
+                    className="flex-1 px-4 py-2.5 bg-danger text-white rounded-xl font-medium hover:bg-danger/90 transition-colors shadow-sm"
+                  >
+                    Undo Order
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
     </motion.div>
   );
