@@ -104,6 +104,14 @@ export default function Inventory() {
     
     const parsedPrice = typeof newItem.price === 'string' ? parseFloat(newItem.price as string) || 0 : newItem.price;
     const parsedOriginalPrice = typeof newItem.originalPrice === 'string' ? parseFloat(newItem.originalPrice as string) || 0 : newItem.originalPrice;
+    
+    if (parsedOriginalPrice > 0 && parsedPrice < parsedOriginalPrice) {
+      const proceed = window.confirm("The selling price is lower than the original price, resulting in a negative profit margin. Are you sure you want to proceed?");
+      if (!proceed) {
+        return;
+      }
+    }
+
     const parsedStock = typeof newItem.stock === 'string' ? parseInt(newItem.stock as string) || 0 : newItem.stock;
 
     const statusValue: 'In Stock' | 'Low Stock' | 'Out of Stock' = 
