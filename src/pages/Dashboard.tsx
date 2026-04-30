@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { BarChart, Bar, Tooltip, ResponsiveContainer, XAxis, YAxis } from 'recharts';
-import { Download, GraphUp, GraphDown, Magnifer, ChartSquare, Box, UsersGroupRounded, WadOfMoney, Wallet, CloseCircle, DangerTriangle } from '@solar-icons/react';
+import { Download, GraphUp, GraphDown, Magnifer, ChartSquare, Box, UsersGroupRounded, WadOfMoney, Wallet, CloseCircle, DangerTriangle, MagicStick, LightbulbMinimalistic, WalletMoney, Rocket, Stars } from '@solar-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTransactionStore } from '../store/useTransactionStore';
 import { useInventoryStore } from '../store/useInventoryStore';
@@ -765,6 +765,8 @@ export default function Dashboard() {
     setShowDownloadModal(false);
   };
 
+
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -774,6 +776,7 @@ export default function Dashboard() {
       onClick={() => setShowAverageFor(null)}
     >
       
+
       {/* Low Stock Alert */}
       {lowStockAlerts.length > 0 && (
         <motion.div 

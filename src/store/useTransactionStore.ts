@@ -32,6 +32,7 @@ interface TransactionStore {
   addTransaction: (transaction: Omit<Transaction, 'id' | 'date'>) => Promise<Transaction | undefined>;
   reverseTransaction: (transactionId: string) => Promise<void>;
   updateTransactionPayment: (transactionId: string, payment: 'Paid' | 'Unpaid' | 'Partially Paid', amount_paid: number) => Promise<void>;
+  updateTransactionPricing: (transactionId: string, updatedItems: CartItem[], newTotal: number, newAmountPaid: number) => Promise<void>;
 }
 
 export const useTransactionStore = create<TransactionStore>((set, get) => ({
@@ -289,5 +290,60 @@ export const useTransactionStore = create<TransactionStore>((set, get) => ({
 
     // Log the update action
     await get().logTransactionAction('Payment Updated', transactionId, `Updated payment to ${payment} (${amount_paid}) for order ${transactionId}`);
+  },
+  updateTransactionPricing: async (transactionId, updatedItems, newTotal, newAmountPaid) => {
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user?.id) return;
+
+    // Update in Supabase - transactions table
+    const { error: txError } = await supabase
+      .from('transactions')
+      .update({ total: newTotal, amount_paid: newAmountPaid.toString() })
+      .eq('id', transactionId);
+
+    if (txError) {
+      console.error('Error updating transaction pricing:', txError);
+      return;
+    }
+
+    // Update transaction_items table
+    for (const item of updatedItems) {
+      await supabase
+        .from('transaction_items')
+        .update({
+          price_at_time: item.product.price,
+          original_price_at_time: item.product.original_price || 0
+        })
+        .eq('transaction_id', transactionId)
+        .eq('product_id', item.product.id);
+    }
+
+    // Update locally
+    set((state) => ({
+      transactions: state.transactions.map((t) => 
+        t.id === transactionId ? { 
+          ...t, 
+          total: newTotal, 
+          amount_paid: newAmountPaid,
+          items: t.items.map(ti => {
+            const matchedItem = updatedItems.find(ni => ni.product.id === ti.product.id);
+            if (matchedItem) {
+              return {
+                ...ti,
+                product: {
+                  ...ti.product,
+                  price: matchedItem.product.price,
+                  original_price_at_time: matchedItem.product.original_price || 0
+                }
+              };
+            }
+            return ti;
+          })
+        } : t
+      )
+    }));
+
+    // Log the update action
+    await get().logTransactionAction('Pricing Updated', transactionId, `Updated pricing for order ${transactionId} to latest inventory prices. New Total: ${newTotal}`);
   },
 }));

@@ -2,6 +2,7 @@
 import { NavLink } from 'react-router-dom';
 import { Widget, Cart, Box, Wallet, Settings, CloseCircle, Logout, DocumentText } from '@solar-icons/react';
 import { useAuth } from '../../contexts/AuthContext';
+import SidebarInsights from './SidebarInsights';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -75,10 +76,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             })}
           </nav>
 
-          <div className="mt-auto px-4">
+          <div className="mt-auto px-4 pb-4">
+            <SidebarInsights />
             <button
               onClick={signOut}
-              className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-50 transition-all duration-200"
+              className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-50 transition-all duration-200 mt-2"
             >
               <Logout className="w-5 h-5" />
               Sign Out
