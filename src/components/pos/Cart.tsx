@@ -154,7 +154,7 @@ export default function Cart() {
     <motion.div 
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
-      className={`w-full lg:w-96 bg-white rounded-3xl shadow-sm border flex flex-col h-full overflow-hidden transition-all duration-200 ${dragCounter > 0 ? 'border-primary-400 border-2 shadow-lg bg-primary-50/10' : 'border-gray-100'}`}
+      className={`w-full lg:w-96 bg-gradient-to-b from-white/95 to-white/70 backdrop-blur-2xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] border border-white/60 flex flex-col h-full overflow-hidden transition-all duration-200 ${dragCounter > 0 ? 'border-primary-400 border-2 shadow-2xl bg-primary-50/30' : ''}`}
       onDragEnter={(e: React.DragEvent) => {
         if (e.dataTransfer.types.includes('product_id')) {
           e.preventDefault();
@@ -192,7 +192,7 @@ export default function Cart() {
       }}
     >
       {/* Header */}
-      <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+      <div className="p-6 border-b border-white/50 flex items-center justify-between bg-white/40">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <BillList className="w-5 h-5 text-gray-400" />
@@ -258,7 +258,7 @@ export default function Cart() {
                     removeItem(item.product.id);
                   }
                 }}
-                className="flex gap-3 bg-white p-3 rounded-2xl border border-gray-50 shadow-sm cursor-grab active:cursor-grabbing"
+                className="flex gap-3 bg-white/80 backdrop-blur-md p-3 rounded-2xl border border-white/60 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
               >
                 <img src={item.product.image} alt={item.product.name} className="w-16 h-16 rounded-xl object-cover bg-gray-100" />
                 <div className="flex-1 flex flex-col justify-between">
@@ -309,8 +309,9 @@ export default function Cart() {
       </div>
 
       {/* Footer */}
-      <div className="p-6 bg-white border-t border-gray-100 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
-        <div className="space-y-3 mb-6 border-b border-dashed border-gray-200 pb-6">
+      <div className="p-6 bg-white/60 backdrop-blur-xl border-t border-white/50 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-t from-primary-500/5 to-transparent pointer-events-none" />
+        <div className="relative z-10 space-y-3 mb-6 border-b border-dashed border-gray-300/50 pb-6">
           <div className="flex justify-between text-sm text-gray-500">
             <span>Subtotal</span>
             <span className="text-text-main">{formatPHP(subtotal)}</span>
@@ -340,7 +341,7 @@ export default function Cart() {
           </div>
         </div>
         
-        <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
+        <div className="relative z-10 flex items-center gap-2 mb-4 p-3 bg-white/50 backdrop-blur-sm rounded-xl border border-white/60 shadow-sm">
           <input 
             type="checkbox" 
             id="markAllExpense"
@@ -353,12 +354,12 @@ export default function Cart() {
           </label>
         </div>
 
-        <div className="flex justify-between items-center mb-6">
+        <div className="relative z-10 flex justify-between items-center mb-6">
           <span className="text-lg font-medium text-text-main">TOTAL</span>
           <span className="text-2xl font-semibold text-primary-600">{formatPHP(finalTotal)}</span>
         </div>
 
-        <div className="flex flex-col gap-3 mb-4">
+        <div className="relative z-10 flex flex-col gap-3 mb-4">
           <div className="flex gap-2">
             {['Paid', 'Partially Paid', 'Unpaid'].map(status => (
               <button
@@ -366,8 +367,8 @@ export default function Cart() {
                 onClick={() => setPaymentStatus(status as 'Paid' | 'Unpaid' | 'Partially Paid')}
                 className={`flex-1 py-2 rounded-xl text-xs font-medium transition-colors border ${
                   paymentStatus === status 
-                    ? 'bg-primary-50 text-primary-600 border-primary-200' 
-                    : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                    ? 'bg-primary-50 text-primary-600 border-primary-200 shadow-sm font-bold' 
+                    : 'bg-white/60 text-gray-500 border-white hover:bg-white/90'
                 }`}
               >
                 {status}
@@ -381,7 +382,7 @@ export default function Cart() {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="flex items-center justify-between px-4 py-2 bg-gray-50 rounded-xl border border-gray-200 overflow-hidden"
+                className="flex items-center justify-between px-4 py-2 bg-white/70 backdrop-blur-md rounded-xl border border-white/80 overflow-hidden shadow-inner"
               >
                 <span className="text-sm text-gray-600">Amount Paid (₱)</span>
                 <input 
@@ -398,15 +399,15 @@ export default function Cart() {
           </AnimatePresence>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="relative z-10 flex flex-col gap-2">
           <div className="flex gap-2 w-full">
             <button 
               disabled={items.length === 0 && !orderSuccess || isOrdering}
               onClick={orderSuccess ? handleReverseTransaction : handlePlaceOrder}
-              className={`py-4 text-white rounded-2xl font-medium transition-all flex items-center justify-center gap-2
+              className={`py-4 text-white rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-2
                 ${orderSuccess 
-                  ? 'flex-1 bg-danger hover:bg-danger/90 shadow-[0_4px_14px_0_rgba(239,68,68,0.39)]' 
-                  : 'w-full bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-[0_4px_14px_0_rgba(59,130,246,0.39)] hover:shadow-[0_6px_20px_rgba(59,130,246,0.23)]'
+                  ? 'flex-1 bg-gradient-to-r from-danger to-red-600 hover:from-red-600 hover:to-red-700 shadow-[0_4px_20px_0_rgba(239,68,68,0.4)]' 
+                  : 'w-full bg-gradient-to-r from-primary-500 to-indigo-500 hover:from-primary-600 hover:to-indigo-600 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed shadow-[0_4px_20px_0_rgba(99,102,241,0.4)] hover:shadow-[0_8px_25px_rgba(99,102,241,0.5)]'
                 }`}
             >
               {isOrdering ? (
@@ -467,25 +468,26 @@ export default function Cart() {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="relative w-full max-w-sm bg-white rounded-3xl shadow-xl p-6 overflow-hidden"
+              className="relative w-full max-w-sm bg-white/90 backdrop-blur-2xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/50 p-6 overflow-hidden"
             >
-              <div className="mx-auto w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-4 text-orange-500">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent pointer-events-none" />
+              <div className="relative z-10 mx-auto w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-4 text-orange-500 shadow-sm">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-medium text-center text-gray-900 mb-2">Insufficient Stock</h3>
-              <p className="text-sm text-center text-gray-500 mb-6">
+              <h3 className="relative z-10 text-xl font-bold text-center text-gray-900 mb-2">Insufficient Stock</h3>
+              <p className="relative z-10 text-sm text-center text-gray-500 mb-6">
                 The following items do not have enough stock: <br />
                 <span className="font-medium text-gray-800">{outOfStockItemNames.join(', ')}</span>
                 <br /><br />
                 Do you want to proceed anyway?
               </p>
               
-              <div className="flex gap-3">
+              <div className="relative z-10 flex gap-3">
                 <button 
                   onClick={() => setShowStockModal(false)}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-white/60 text-gray-600 border border-white/80 rounded-xl font-medium hover:bg-white transition-colors shadow-sm"
                 >
                   Cancel
                 </button>
@@ -516,22 +518,23 @@ export default function Cart() {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="relative w-full max-w-sm bg-white rounded-3xl shadow-xl p-6 overflow-hidden"
+              className="relative w-full max-w-sm bg-white/90 backdrop-blur-2xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/50 p-6 overflow-hidden"
             >
-              <div className="mx-auto w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4 text-yellow-500">
+              <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-transparent pointer-events-none" />
+              <div className="relative z-10 mx-auto w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4 text-yellow-500 shadow-sm">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-medium text-center text-gray-900 mb-2">Duplicate Order</h3>
-              <p className="text-sm text-center text-gray-500 mb-6">
+              <h3 className="relative z-10 text-xl font-bold text-center text-gray-900 mb-2">Duplicate Order</h3>
+              <p className="relative z-10 text-sm text-center text-gray-500 mb-6">
                 This order is identical to the previous order. Are you sure you want to proceed and create a duplicate order?
               </p>
               
-              <div className="flex gap-3">
+              <div className="relative z-10 flex gap-3">
                 <button 
                   onClick={() => setShowDuplicateModal(false)}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-white/60 text-gray-600 border border-white/80 rounded-xl font-medium hover:bg-white transition-colors shadow-sm"
                 >
                   Cancel
                 </button>
@@ -567,20 +570,21 @@ export default function Cart() {
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="relative w-full max-w-sm bg-white rounded-3xl shadow-xl p-6 overflow-hidden"
+                className="relative w-full max-w-sm bg-white/90 backdrop-blur-2xl rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/50 p-6 overflow-hidden"
               >
-                <div className="mx-auto w-12 h-12 bg-danger/10 rounded-full flex items-center justify-center mb-4 text-danger">
+                <div className="absolute inset-0 bg-gradient-to-br from-danger/10 to-transparent pointer-events-none" />
+                <div className="relative z-10 mx-auto w-12 h-12 bg-danger/10 rounded-full flex items-center justify-center mb-4 text-danger shadow-sm">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-medium text-center text-gray-900 mb-2">Undo Transaction</h3>
-                <p className="text-sm text-center text-gray-500 mb-4">
+                <h3 className="relative z-10 text-xl font-bold text-center text-gray-900 mb-2">Undo Transaction</h3>
+                <p className="relative z-10 text-sm text-center text-gray-500 mb-4">
                   Are you sure you want to undo this transaction? This will reverse the sale and restore inventory.
                 </p>
                 
                 {transactionToUndo && (
-                  <div className="bg-gray-50 rounded-xl p-4 mb-6 border border-gray-100 max-h-40 overflow-y-auto hide-scrollbar text-left">
+                  <div className="relative z-10 bg-white/60 backdrop-blur-md rounded-xl p-4 mb-6 border border-white/80 shadow-sm max-h-40 overflow-y-auto hide-scrollbar text-left">
                     <div className="flex justify-between items-center mb-2 pb-2 border-b border-gray-200">
                       <span className="text-xs font-semibold text-gray-500">Order ID: {transactionToUndo.id.slice(0, 8)}...</span>
                       <span className="text-xs font-bold text-gray-900">{formatPHP(transactionToUndo.total)}</span>
@@ -596,10 +600,10 @@ export default function Cart() {
                   </div>
                 )}
                 
-                <div className="flex gap-3">
+                <div className="relative z-10 flex gap-3">
                   <button 
                     onClick={() => setShowUndoModal(false)}
-                    className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+                    className="flex-1 px-4 py-2.5 bg-white/60 text-gray-600 border border-white/80 rounded-xl font-medium hover:bg-white transition-colors shadow-sm"
                   >
                     Cancel
                   </button>

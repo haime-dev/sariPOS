@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { BarChart, Bar, Tooltip, ResponsiveContainer, XAxis, YAxis } from 'recharts';
-import { Download, GraphUp, GraphDown, Magnifer, ChartSquare, Box, UsersGroupRounded, WadOfMoney, Wallet, CloseCircle, DangerTriangle, MagicStick, LightbulbMinimalistic, WalletMoney, Rocket, Stars } from '@solar-icons/react';
+import { Download, GraphUp, GraphDown, Magnifer, ChartSquare, Box, UsersGroupRounded, WadOfMoney, Wallet, CloseCircle, DangerTriangle } from '@solar-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTransactionStore } from '../store/useTransactionStore';
 import { useInventoryStore } from '../store/useInventoryStore';
@@ -146,6 +146,8 @@ export default function Dashboard() {
   const [isAlertMinimized, setIsAlertMinimized] = useState(false);
   const [showUnpaidBreakdown, setShowUnpaidBreakdown] = useState(false);
   const [showUnusedCapitalBreakdown, setShowUnusedCapitalBreakdown] = useState(false);
+  const [showAllOrders, setShowAllOrders] = useState(true);
+  const [showTopSelling, setShowTopSelling] = useState(true);
 
   // Drag-to-scroll state
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -780,6 +782,7 @@ export default function Dashboard() {
       {/* Low Stock Alert */}
       {lowStockAlerts.length > 0 && (
         <motion.div 
+          id="low-stock-alert"
           layout
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -828,7 +831,7 @@ export default function Dashboard() {
       )}
 
       {/* Top Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="sticky top-4 z-[55] flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/70 backdrop-blur-xl p-3 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 mb-2">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex bg-white rounded-2xl p-1 shadow-sm border border-gray-100 whitespace-nowrap overflow-x-auto hide-scrollbar">
             {['Daily', 'Weekly', 'Monthly', 'All Time'].map((period) => (
@@ -857,24 +860,11 @@ export default function Dashboard() {
               <Download className="w-3 h-3" />
             </div>
           </button>
-
-          <div className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-2xl border border-gray-100 shadow-sm">
-            <span className="text-sm">Show Graph</span>
-            <div 
-              className={`w-10 h-6 rounded-full relative cursor-pointer transition-colors ${showGraph ? 'bg-primary-500' : 'bg-gray-300'}`}
-              onClick={() => setShowGraph(!showGraph)}
-            >
-              <motion.div 
-                layout
-                className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm ${showGraph ? 'right-1' : 'left-1'}`} 
-              />
-            </div>
-          </div>
         </div>
       </div>
 
       {/* Stat Cards - Top Highlighted Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
+      <div id="summary-stats" className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-2">
         <StatCard 
           title="Available Cash" 
           value={formatPHP(availableCash)} 
@@ -938,7 +928,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stat Cards - Secondary Smaller Row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div id="secondary-stats" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard 
           isSmall
           title="Total Sales" 
@@ -1129,10 +1119,12 @@ export default function Dashboard() {
       <div className="flex flex-col gap-6">
         
         {/* Chart Section */}
-        {showGraph && (
-        <div className="w-full bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col">
-          <div className="flex items-center justify-start gap-4 mb-8">
-            <h3 className="text-lg flex items-center gap-2 flex-grow">
+        <div id="performance-graph" className="w-full bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col">
+          <div 
+            className="flex items-center justify-start gap-4 cursor-pointer group"
+            onClick={() => setShowGraph(!showGraph)}
+          >
+            <h3 className="text-lg flex items-center gap-2 flex-grow group-hover:text-primary-600 transition-colors">
               <span className="w-2 h-2 rounded-full bg-primary-500"></span>
               Performance Graph
             </h3>
@@ -1143,6 +1135,7 @@ export default function Dashboard() {
 
             <select 
               value={graphMetric}
+              onClick={(e) => e.stopPropagation()}
               onChange={(e) => setGraphMetric(e.target.value as any)}
               className="px-4 py-2 border border-gray-200 rounded-xl text-sm bg-white text-gray-700 font-medium focus:outline-none focus:ring-2 focus:ring-primary-100 cursor-pointer shadow-sm hover:bg-gray-50 transition-colors"
             >
@@ -1154,6 +1147,14 @@ export default function Dashboard() {
             </select>
           </div>
           
+          <AnimatePresence>
+            {showGraph && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                animate={{ height: 'auto', opacity: 1, marginTop: 32 }}
+                exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                className="overflow-hidden flex flex-col"
+              >
           <div className="h-64 mb-6">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
@@ -1196,17 +1197,22 @@ export default function Dashboard() {
                </div>
              </div>
           </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-        )}
 
         {/* Favorite Products */}
-        <div className="w-full bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col overflow-hidden">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-            <h3 className="text-lg flex items-center gap-2 whitespace-nowrap">
+        <div id="top-selling-products" className="w-full bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col overflow-hidden">
+          <div 
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer group"
+            onClick={() => setShowTopSelling(!showTopSelling)}
+          >
+            <h3 className="text-lg flex items-center gap-2 whitespace-nowrap group-hover:text-primary-600 transition-colors">
               <span className="w-2 h-2 rounded-full bg-primary-500"></span>
               Top Selling Products
             </h3>
-            <div className="relative w-full sm:w-auto">
+            <div className="relative w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
               <input 
                 type="text" 
                 placeholder="Search product..." 
@@ -1218,7 +1224,15 @@ export default function Dashboard() {
             </div>
           </div>
           
-          <div className="w-full overflow-x-auto hide-scrollbar">
+          <AnimatePresence>
+            {showTopSelling && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                animate={{ height: 'auto', opacity: 1, marginTop: 24 }}
+                exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                className="overflow-hidden flex flex-col"
+              >
+                <div className="w-full overflow-x-auto hide-scrollbar">
             <div className="min-w-[900px]">
               {/* Header row using Grid */}
               <div className="grid grid-cols-10 gap-2 items-center text-xs sm:text-sm font-bold text-gray-600 uppercase tracking-wider mb-4 px-3 pb-3 border-b border-gray-100">
@@ -1298,21 +1312,28 @@ export default function Dashboard() {
             </div>
             </div>
           </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-      </div>
+        </div>
 
       {/* All Orders Table */}
-      <div ref={allOrdersTableRef} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div id="all-orders" ref={allOrdersTableRef} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+        <div 
+          className="flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer group"
+          onClick={() => setShowAllOrders(!showAllOrders)}
+        >
            <div className="flex items-center gap-4">
-             <h3 className="text-lg flex items-center gap-2">
+             <h3 className="text-lg flex items-center gap-2 group-hover:text-primary-600 transition-colors">
                <span className="w-2 h-2 rounded-full bg-primary-500"></span>
                All Orders
              </h3>
              {selectedOrdersToUndo.length > 0 && (
                <button 
-                 onClick={() => {
+                 onClick={(e) => {
+                   e.stopPropagation();
                    setTransactionsToUndo(selectedOrdersToUndo);
                    setShowUndoModal(true);
                  }}
@@ -1323,7 +1344,7 @@ export default function Dashboard() {
              )}
            </div>
            
-           <div className="flex flex-wrap items-center gap-3 text-sm">
+           <div className="flex flex-wrap items-center gap-3 text-sm" onClick={(e) => e.stopPropagation()}>
              <div className="flex items-center gap-2 text-gray-500">
                Date: 
                <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200 text-text-main">
@@ -1357,8 +1378,16 @@ export default function Dashboard() {
            </div>
         </div>
 
-        <div 
-          ref={tableContainerRef}
+        <AnimatePresence>
+          {showAllOrders && (
+            <motion.div
+              initial={{ height: 0, opacity: 0, marginTop: 0 }}
+              animate={{ height: 'auto', opacity: 1, marginTop: 24 }}
+              exit={{ height: 0, opacity: 0, marginTop: 0 }}
+              className="overflow-hidden"
+            >
+              <div 
+                ref={tableContainerRef}
           onMouseDown={handleMouseDown}
           onMouseLeave={handleMouseLeave}
           onMouseUp={handleMouseUp}
@@ -1521,7 +1550,10 @@ export default function Dashboard() {
               )}
             </tbody>
           </table>
-        </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Order Details Modal */}
@@ -1960,7 +1992,6 @@ export default function Dashboard() {
           </div>
         )}
       </AnimatePresence>
-
 
     </motion.div>
   );

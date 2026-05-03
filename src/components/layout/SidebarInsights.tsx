@@ -77,8 +77,10 @@ export default function SidebarInsights() {
   const allTimeNonStoreExpenses = expenses
     .filter(e => e.category !== 'Store Use')
     .reduce((sum, e) => sum + e.amount, 0);
+
+  const allTimeInventoryValue = inventoryItems.reduce((sum, item) => sum + ((item.original_price ?? 0) * item.stock), 0);
     
-  const allTimeValueOfBusiness = allTimeNetProfit - allTimeNonStoreExpenses;
+  const allTimeValueOfBusiness = allTimeInventoryValue + allTimeNetProfit - allTimeNonStoreExpenses;
   const allTimeProfitMargin = allTimeCapital > 0 ? Math.round((allTimeNetProfit / allTimeCapital) * 100) : 0;
   
   const currentMonthExpenses = expenses.filter(e => {
@@ -176,7 +178,7 @@ export default function SidebarInsights() {
         type: 'success',
         icon: <ChartSquare className="w-5 h-5 text-indigo-500" />,
         title: 'Business Value',
-        message: `Your business is valued at ${formatPHP(allTimeValueOfBusiness)}. Awesome!`
+        message: `Your total business value is ${formatPHP(allTimeValueOfBusiness)} (Inventory + Cash).`
       });
     }
 

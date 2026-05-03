@@ -1,6 +1,8 @@
 
-import { NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Widget, Cart, Box, Wallet, Settings, CloseCircle, Logout, DocumentText } from '@solar-icons/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import SidebarInsights from './SidebarInsights';
 
@@ -20,6 +22,21 @@ const navItems = [
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { signOut } = useAuth();
+  const location = useLocation();
+  const [showToc, setShowToc] = useState(false);
+
+  const isDashboard = location.pathname === '/dashboard' || location.pathname === '/';
+
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setShowToc(false);
+      if (window.innerWidth < 768) {
+        onClose();
+      }
+    }
+  };
 
   return (
     <>
@@ -74,6 +91,21 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </NavLink>
               );
             })}
+            {isDashboard && (
+              <div className="px-4 mt-2 mb-2">
+                <button
+                  onClick={() => setShowToc(true)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-primary-50 text-primary-600 rounded-2xl transition-all duration-300 hover:bg-primary-100 font-bold shadow-sm"
+                >
+                  <div className="flex items-center gap-4">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                    Jump to Section
+                  </div>
+                </button>
+              </div>
+            )}
           </nav>
 
           <div className="mt-auto px-4 pb-4">
@@ -88,6 +120,63 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
         </div>
       </aside>
+
+      {/* Table of Contents Modal for Sidebar */}
+      <AnimatePresence>
+        {showToc && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowToc(false)}
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[65]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[70] w-72 bg-white/95 backdrop-blur-xl border border-white shadow-2xl rounded-3xl p-6 overflow-hidden flex flex-col"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-800">Sections</h3>
+                <button 
+                  onClick={() => setShowToc(false)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <CloseCircle className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex flex-col gap-2">
+                <button onClick={() => scrollToSection('low-stock-alert')} className="text-left px-4 py-2 hover:bg-gray-100 rounded-xl text-sm font-medium text-gray-700 transition-colors flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
+                  Critical Stock Alert
+                </button>
+                <button onClick={() => scrollToSection('summary-stats')} className="text-left px-4 py-2 hover:bg-gray-100 rounded-xl text-sm font-medium text-gray-700 transition-colors flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                  Summary Stats
+                </button>
+                <button onClick={() => scrollToSection('secondary-stats')} className="text-left px-4 py-2 hover:bg-gray-100 rounded-xl text-sm font-medium text-gray-700 transition-colors flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+                  Secondary Stats
+                </button>
+                <button onClick={() => scrollToSection('performance-graph')} className="text-left px-4 py-2 hover:bg-gray-100 rounded-xl text-sm font-medium text-gray-700 transition-colors flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>
+                  Performance Graph
+                </button>
+                <button onClick={() => scrollToSection('top-selling-products')} className="text-left px-4 py-2 hover:bg-gray-100 rounded-xl text-sm font-medium text-gray-700 transition-colors flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-orange-400 shrink-0"></span>
+                  Top Selling Products
+                </button>
+                <button onClick={() => scrollToSection('all-orders')} className="text-left px-4 py-2 hover:bg-gray-100 rounded-xl text-sm font-medium text-gray-700 transition-colors flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0"></span>
+                  All Orders
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 }
