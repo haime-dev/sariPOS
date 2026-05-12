@@ -738,16 +738,36 @@ export default function Dashboard() {
       });
     }
 
-    const headers = ['Order ID', 'Date', 'Customer', 'Amount Paid (PHP)', 'Total Order (PHP)', 'Payment Status', 'Items Sold'];
-    const rows = exportTransactions.map(t => [
-      t.id,
-      new Date(t.date).toLocaleString(),
-      t.customer,
-      t.amount_paid.toString(),
-      t.total.toString(),
-      t.payment,
-      t.items.map((item: any) => `${item.quantity}x ${item.product.name}`).join('; ')
-    ]);
+    const headers = ['Order ID', 'Date', 'Customer', 'Amount Paid (PHP)', 'Total Order (PHP)', 'Total Original Price (PHP)', 'Total Profit (PHP)', 'Payment Status', 'Items Sold'];
+    const rows = exportTransactions.map(t => {
+      let totalOriginalPrice = 0;
+      let totalSales = 0;
+
+      t.items.forEach((item: any) => {
+        const qty = item.quantity;
+        const origPrice = item.product.original_price || item.product.originalPrice || 0;
+        
+        const isExpense = t.customer === 'Family Expense' || item.isExpense || (item.product.price === 0 && qty > 0);
+        const itemTotalSales = isExpense ? 0 : (item.product.price * qty);
+        
+        totalOriginalPrice += (origPrice * qty);
+        totalSales += itemTotalSales;
+      });
+
+      const totalProfit = totalSales - totalOriginalPrice;
+
+      return [
+        t.id,
+        new Date(t.date).toLocaleString(),
+        t.customer,
+        t.amount_paid.toString(),
+        t.total.toString(),
+        totalOriginalPrice.toString(),
+        totalProfit.toString(),
+        t.payment,
+        t.items.map((item: any) => `${item.quantity}x ${item.product.name}`).join('; ')
+      ];
+    });
 
     const csvContent = [
       headers.join(','),
