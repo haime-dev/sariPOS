@@ -217,7 +217,7 @@ export default function History() {
                               <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
                                 <td className="px-4 py-3">
                                   <div className="flex items-center gap-3">
-                                    <img src={item.product.image || 'https://images.unsplash.com/photo-1549903072-7e6e0b3c2242?auto=format&fit=crop&q=80&w=100&h=100'} alt={item.product.name} className="w-8 h-8 rounded-lg object-cover bg-gray-50" />
+                                    <img src={item.product.image?.includes('unsplash.com') ? `https://ui-avatars.com/api/?name=${encodeURIComponent(item.product.name)}&background=random&size=400&bold=true` : (item.product.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.product.name)}&background=random&size=400&bold=true`)} alt={item.product.name} className="w-8 h-8 rounded-lg object-cover bg-gray-50" />
                                     <div>
                                       <p className="font-medium text-gray-900">{item.product.name}</p>
                                     </div>

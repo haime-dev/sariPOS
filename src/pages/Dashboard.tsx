@@ -702,7 +702,7 @@ export default function Dashboard() {
           avgProfit: 0,
           avgSales: 0,
           avgOrders: 0,
-          image: item.product.image || 'https://images.unsplash.com/photo-1549903072-7e6e0b3c2242?auto=format&fit=crop&q=80&w=100&h=100'
+          image: item.product.image?.includes('unsplash.com') ? `https://ui-avatars.com/api/?name=${encodeURIComponent(item.product.name)}&background=random&size=400&bold=true` : (item.product.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.product.name)}&background=random&size=400&bold=true`)
         });
       }
     });
@@ -831,7 +831,7 @@ export default function Dashboard() {
       )}
 
       {/* Top Action Bar */}
-      <div className="sticky top-4 z-[55] flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/70 backdrop-blur-xl p-3 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 mb-2">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/70 backdrop-blur-xl p-3 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 mb-6">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex bg-white rounded-2xl p-1 shadow-sm border border-gray-100 whitespace-nowrap overflow-x-auto hide-scrollbar">
             {['Daily', 'Weekly', 'Monthly', 'All Time'].map((period) => (
@@ -1253,7 +1253,7 @@ export default function Dashboard() {
                     
                     {/* Image */}
                     <div className="col-span-1 flex justify-center">
-                      <img src={product.image} alt={product.name} className="w-8 h-8 rounded-xl object-cover bg-gray-100 flex-shrink-0 shadow-[0_1px_3px_0_rgba(0,0,0,0.1)]" />
+                      <img src={product.image?.includes('unsplash.com') ? `https://ui-avatars.com/api/?name=${encodeURIComponent(product.name)}&background=random&size=400&bold=true` : (product.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(product.name)}&background=random&size=400&bold=true`)} alt={product.name} className="w-8 h-8 rounded-xl object-cover bg-gray-100 flex-shrink-0 shadow-[0_1px_3px_0_rgba(0,0,0,0.1)]" />
                     </div>
                     
                     {/* Name and Category */}
@@ -1625,7 +1625,7 @@ export default function Dashboard() {
                           <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
-                                <img src={item.product.image || 'https://images.unsplash.com/photo-1549903072-7e6e0b3c2242?auto=format&fit=crop&q=80&w=100&h=100'} alt={item.product.name} className="w-10 h-10 rounded-lg object-cover bg-gray-50" />
+                                <img src={item.product.image?.includes('unsplash.com') ? `https://ui-avatars.com/api/?name=${encodeURIComponent(item.product.name)}&background=random&size=400&bold=true` : (item.product.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.product.name)}&background=random&size=400&bold=true`)} alt={item.product.name} className="w-10 h-10 rounded-lg object-cover bg-gray-50" />
                                 <div>
                                   <p className="font-medium text-gray-900">{item.product.name}</p>
                                   <p className="text-[10px] text-primary-500">{item.product.category}</p>
@@ -1934,7 +1934,7 @@ export default function Dashboard() {
             >
               <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
                 <div className="flex items-center gap-4">
-                  <img src={selectedProductMetrics.image} className="w-12 h-12 rounded-xl object-cover shadow-sm bg-gray-50" />
+                  <img src={selectedProductMetrics.image?.includes('unsplash.com') ? `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedProductMetrics.name)}&background=random&size=400&bold=true` : (selectedProductMetrics.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedProductMetrics.name)}&background=random&size=400&bold=true`)} className="w-12 h-12 rounded-xl object-cover shadow-sm bg-gray-50" />
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">{selectedProductMetrics.name}</h3>
                     <span className="text-sm text-primary-600 font-semibold tracking-wide uppercase">{selectedProductMetrics.category}</span>

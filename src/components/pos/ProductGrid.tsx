@@ -126,7 +126,7 @@ export default function ProductGrid() {
               </div>
             )}
             <div className="w-full h-40 rounded-2xl overflow-hidden mb-4 bg-gray-50 flex flex-shrink-0 items-center justify-center relative p-2">
-              <img src={product.image} alt={product.name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+              <img src={product.image?.includes('unsplash.com') ? `https://ui-avatars.com/api/?name=${encodeURIComponent(product.name)}&background=random&size=400&bold=true` : (product.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(product.name)}&background=random&size=400&bold=true`)} alt={product.name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
             </div>
             <h3 className="text-text-main mb-1 truncate">{product.name}</h3>
             <div className="flex items-center justify-between mt-auto">

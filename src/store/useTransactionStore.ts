@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { CartItem } from './useCartStore';
 import { useExpenseStore } from './useExpenseStore';
+import { useSettingsStore } from './useSettingsStore';
 import { supabase } from '../lib/supabase';
 
 export interface Transaction {
@@ -265,6 +266,10 @@ export const useTransactionStore = create<TransactionStore>((set, get) => ({
       message: `Order ${transactionId} was reverted and stock was restored.`,
       transaction: transactionToReverse
     }));
+
+    if (useSettingsStore.getState().soundEnabled) {
+      new Audio('https://assets.mixkit.co/active_storage/sfx/2575/2575-preview.mp3').play().catch(e => console.error(e));
+    }
   },
   updateTransactionPayment: async (transactionId, payment, amount_paid) => {
     const { data: authData } = await supabase.auth.getUser();
@@ -290,6 +295,10 @@ export const useTransactionStore = create<TransactionStore>((set, get) => ({
 
     // Log the update action
     await get().logTransactionAction('Payment Updated', transactionId, `Updated payment to ${payment} (${amount_paid}) for order ${transactionId}`);
+
+    if (useSettingsStore.getState().soundEnabled && payment === 'Paid') {
+      new Audio('https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3').play().catch(e => console.error(e));
+    }
   },
   updateTransactionPricing: async (transactionId, updatedItems, newTotal, newAmountPaid) => {
     const { data: authData } = await supabase.auth.getUser();

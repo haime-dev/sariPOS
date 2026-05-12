@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useCartStore } from '../../store/useCartStore';
 import { useTransactionStore } from '../../store/useTransactionStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { formatPHP } from '../../utils/currency';
-import { MinusCircle, AddCircle, TrashBinTrash, BillList } from '@solar-icons/react';
+import { MinusCircle, AddCircle, TrashBinTrash, BillList, Pen } from '@solar-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useInventoryStore } from '../../store/useInventoryStore';
 
@@ -10,6 +11,7 @@ export default function Cart() {
   const { items, updateQuantity, clearCart, removeItem } = useCartStore();
   const addTransaction = useTransactionStore((state) => state.addTransaction);
   const transactions = useTransactionStore((state) => state.transactions);
+  const soundEnabled = useSettingsStore((state) => state.soundEnabled);
   
   // Calculate totals inline since Zustand getters aren't reactive when destructured
   const subtotal = items.reduce((sum, item) => sum + (item.isExpense ? 0 : item.product.price * item.quantity), 0);
@@ -84,6 +86,11 @@ export default function Cart() {
     });
 
     if (newTransaction) {
+      if (soundEnabled) {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3');
+        audio.play().catch(e => console.error("Error playing sound:", e));
+      }
+
       setLastTransactionId(newTransaction.id);
       setIsOrdering(false);
       setOrderSuccess(true);
@@ -194,15 +201,20 @@ export default function Cart() {
       {/* Header */}
       <div className="p-6 border-b border-white/50 flex items-center justify-between bg-white/40">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <BillList className="w-5 h-5 text-gray-400" />
-            <input 
-              type="text" 
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Customer Name"
-              className="text-xl font-medium text-text-main bg-transparent border-none focus:outline-none focus:ring-0 p-0 w-48 placeholder-gray-300"
-            />
+          <div className="flex items-center gap-2 mb-1 group">
+            <div className="bg-primary-50/50 p-1.5 rounded-lg text-primary-500">
+              <BillList className="w-5 h-5" />
+            </div>
+            <div className="flex items-center bg-white/50 hover:bg-white border border-gray-200/50 hover:border-primary-200 focus-within:bg-white focus-within:border-primary-300 focus-within:ring-2 focus-within:ring-primary-100 rounded-xl px-3 py-1.5 transition-all shadow-sm group cursor-text">
+              <input 
+                type="text" 
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Customer Name"
+                className="text-xl font-bold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-0 p-0 w-40 placeholder-gray-400"
+              />
+              <Pen className="w-4 h-4 text-gray-400 group-hover:text-primary-500 transition-colors ml-1" />
+            </div>
           </div>
           <p className="text-sm text-gray-400">Order Number: #000</p>
         </div>
@@ -260,7 +272,7 @@ export default function Cart() {
                 }}
                 className="flex gap-3 bg-white/80 backdrop-blur-md p-3 rounded-2xl border border-white/60 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
               >
-                <img src={item.product.image} alt={item.product.name} className="w-16 h-16 rounded-xl object-cover bg-gray-100" />
+                <img src={item.product.image?.includes('unsplash.com') ? `https://ui-avatars.com/api/?name=${encodeURIComponent(item.product.name)}&background=random&size=400&bold=true` : (item.product.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.product.name)}&background=random&size=400&bold=true`)} alt={item.product.name} className="w-16 h-16 rounded-xl object-cover bg-gray-100" />
                 <div className="flex-1 flex flex-col justify-between">
                   <div>
                     <h4 className="text-text-main text-sm truncate">{item.product.name}</h4>

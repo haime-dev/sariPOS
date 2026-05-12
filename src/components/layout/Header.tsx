@@ -6,7 +6,7 @@ interface HeaderProps {
   onMenuClick: () => void;
 }
 
-export default function Header({}: HeaderProps) {
+export default function Header({ onMenuClick }: HeaderProps) {
   const [time, setTime] = useState(new Date());
   const location = useLocation();
 
@@ -33,7 +33,15 @@ export default function Header({}: HeaderProps) {
   return (
     <header className="flex items-center justify-between px-6 py-4 bg-transparent">
       <div className="flex items-center gap-4">
-        {/* Hamburger menu removed as requested */}
+        {/* Hamburger menu for mobile */}
+        <button 
+          onClick={onMenuClick}
+          className="md:hidden p-2 text-white hover:bg-white/10 rounded-xl transition-colors"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
 
         {!isSales && (
           <h1 className="text-xl font-medium text-white ml-2 capitalize">

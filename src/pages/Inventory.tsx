@@ -48,6 +48,7 @@ export default function Inventory() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = useState<any>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
   const [newItem, setNewItem] = useState<{
     name: string;
@@ -66,7 +67,7 @@ export default function Inventory() {
     originalPrice: '',
     stock: '',
     status: 'In Stock',
-    image: 'https://images.unsplash.com/photo-1549903072-7e6e0b3c2242?auto=format&fit=crop&q=80&w=200&h=200'
+    image: ''
   });
 
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
@@ -110,10 +111,13 @@ export default function Inventory() {
       parsedStock < 10 ? 'Low Stock' : 
       'In Stock';
 
-    const { price, stock, originalPrice, ...restNewItem } = newItem;
+    const { price, stock, originalPrice, image, ...restNewItem } = newItem;
+
+    const finalImage = image || `https://ui-avatars.com/api/?name=${encodeURIComponent(newItem.name || 'Item')}&background=random&size=400&bold=true`;
 
     const itemData = {
       ...restNewItem,
+      image: finalImage,
       price: parsedPrice,
       original_price: parsedOriginalPrice,
       stock: parsedStock,
@@ -137,12 +141,23 @@ export default function Inventory() {
       originalPrice: '',
       stock: '',
       status: 'In Stock',
-      image: 'https://images.unsplash.com/photo-1549903072-7e6e0b3c2242?auto=format&fit=crop&q=80&w=200&h=200'
+      image: ''
     });
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const isDuplicate = inventory.some(item => 
+      item.name.toLowerCase() === newItem.name.trim().toLowerCase() && 
+      item.id !== editingItemId
+    );
+
+    if (isDuplicate) {
+      setDuplicateError(`A product named "${newItem.name.trim()}" already exists.`);
+      return;
+    }
+    setDuplicateError(null);
     
     const parsedPrice = typeof newItem.price === 'string' ? parseFloat(newItem.price as string) || 0 : newItem.price;
     const parsedOriginalPrice = typeof newItem.originalPrice === 'string' ? parseFloat(newItem.originalPrice as string) || 0 : newItem.originalPrice;
@@ -165,7 +180,7 @@ export default function Inventory() {
       originalPrice: item.original_price || item.originalPrice || '',
       stock: item.stock,
       status: item.status,
-      image: item.image || 'https://images.unsplash.com/photo-1549903072-7e6e0b3c2242?auto=format&fit=crop&q=80&w=200&h=200'
+      image: item.image?.includes('unsplash.com') ? '' : (item.image || '')
     });
     setIsAddModalOpen(true);
   };
@@ -173,6 +188,7 @@ export default function Inventory() {
   const handleCloseModal = () => {
     setIsAddModalOpen(false);
     setShowNegativeMarginWarning(false);
+    setDuplicateError(null);
     setEditingItemId(null);
     setNewItem({
       name: '',
@@ -182,7 +198,7 @@ export default function Inventory() {
       originalPrice: '',
       stock: '',
       status: 'In Stock',
-      image: 'https://images.unsplash.com/photo-1549903072-7e6e0b3c2242?auto=format&fit=crop&q=80&w=200&h=200'
+      image: ''
     });
   };
 
@@ -249,10 +265,10 @@ export default function Inventory() {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex-1 bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col"
+        className="flex-1 bg-white/70 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 overflow-hidden flex flex-col"
       >
         {/* Toolbar */}
-        <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-50/50">
+        <div className="p-4 border-b border-white/60 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white/40">
           <div className="relative w-full max-w-md">
             <Magnifer className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input 
@@ -289,10 +305,10 @@ export default function Inventory() {
         {/* Table */}
         <div className="flex-1 overflow-auto hide-scrollbar">
           <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-white/95 backdrop-blur-sm shadow-sm z-10">
+            <thead className="sticky top-0 bg-white/60 backdrop-blur-md shadow-sm z-10">
               <tr>
                 <th 
-                  className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  className="px-6 py-5 text-[11px] font-extrabold text-primary-700 uppercase tracking-widest cursor-pointer hover:bg-white/50 transition-colors border-b border-white/60"
                   onClick={() => requestSort('name')}
                 >
                   <div className="flex items-center gap-1">
@@ -303,12 +319,12 @@ export default function Inventory() {
                   </div>
                 </th>
 
-                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Category</th>
-                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Orig. Price</th>
-                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Selling Price</th>
-                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Stock</th>
+                <th className="px-6 py-5 text-[11px] font-extrabold text-gray-500 uppercase tracking-widest border-b border-white/60">Category</th>
+                <th className="px-6 py-5 text-[11px] font-extrabold text-gray-500 uppercase tracking-widest text-right border-b border-white/60">Orig. Price</th>
+                <th className="px-6 py-5 text-[11px] font-extrabold text-gray-500 uppercase tracking-widest text-right border-b border-white/60">Selling Price</th>
+                <th className="px-6 py-5 text-[11px] font-extrabold text-gray-500 uppercase tracking-widest text-center border-b border-white/60">Stock</th>
                 <th 
-                  className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right cursor-pointer hover:bg-gray-100 transition-colors"
+                  className="px-6 py-5 text-[11px] font-extrabold text-gray-500 uppercase tracking-widest text-right cursor-pointer hover:bg-white/50 transition-colors border-b border-white/60"
                   onClick={() => requestSort('capital')}
                 >
                   <div className="flex items-center justify-end gap-1">
@@ -319,7 +335,7 @@ export default function Inventory() {
                   </div>
                 </th>
                 <th 
-                  className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right cursor-pointer hover:bg-gray-100 transition-colors"
+                  className="px-6 py-5 text-[11px] font-extrabold text-gray-500 uppercase tracking-widest text-right cursor-pointer hover:bg-white/50 transition-colors border-b border-white/60"
                   onClick={() => requestSort('margin')}
                 >
                   <div className="flex items-center justify-end gap-1">
@@ -329,8 +345,8 @@ export default function Inventory() {
                     )}
                   </div>
                 </th>
-                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                <th className="px-6 py-5 text-[11px] font-extrabold text-gray-500 uppercase tracking-widest border-b border-white/60">Status</th>
+                <th className="px-6 py-5 text-[11px] font-extrabold text-gray-500 uppercase tracking-widest text-right border-b border-white/60">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -342,7 +358,7 @@ export default function Inventory() {
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <img src={item.image} alt={item.name} className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
+                      <img src={item.image?.includes('unsplash.com') ? `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=random&size=400&bold=true` : (item.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=random&size=400&bold=true`)} alt={item.name} className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
                       <span className="font-medium text-gray-900">{item.name}</span>
                     </div>
                   </td>
@@ -428,13 +444,20 @@ export default function Inventory() {
               </div>
 
               <form onSubmit={handleSave} className="p-6 space-y-4">
+                {duplicateError && (
+                  <div className="p-3 bg-red-50 text-red-600 text-sm rounded-xl text-left border border-red-100 mb-2">
+                    {duplicateError}
+                  </div>
+                )}
                 <div className="flex justify-center mb-6">
                   <div className="relative group cursor-pointer">
                     <div className="w-24 h-24 rounded-2xl bg-gray-50 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-primary-300 group-hover:bg-primary-50 relative">
                       {isUploading ? (
                         <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                      ) : newItem.image && newItem.image !== 'https://images.unsplash.com/photo-1549903072-7e6e0b3c2242?auto=format&fit=crop&q=80&w=200&h=200' ? (
+                      ) : newItem.image ? (
                         <img src={newItem.image} alt="Product" className="w-full h-full object-cover" />
+                      ) : newItem.name ? (
+                        <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(newItem.name)}&background=random&size=400&bold=true`} alt="Product" className="w-full h-full object-cover" />
                       ) : (
                         <>
                           <Camera className="w-6 h-6 text-gray-400 group-hover:text-primary-500 mb-1" />

@@ -12,12 +12,12 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: Widget },
-  { path: '/sales', label: 'Sales', icon: Cart },
-  { path: '/inventory', label: 'Inventory', icon: Box },
-  { path: '/history', label: 'History', icon: DocumentText },
-  { path: '/expenses', label: 'Expenses', icon: Wallet },
-  { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/dashboard', label: 'Dashboard', icon: Widget, color: 'text-blue-500', bg: 'bg-blue-50', activeColor: 'text-blue-600' },
+  { path: '/sales', label: 'Sales', icon: Cart, color: 'text-emerald-500', bg: 'bg-emerald-50', activeColor: 'text-emerald-600' },
+  { path: '/inventory', label: 'Inventory', icon: Box, color: 'text-orange-500', bg: 'bg-orange-50', activeColor: 'text-orange-600' },
+  { path: '/history', label: 'History', icon: DocumentText, color: 'text-purple-500', bg: 'bg-purple-50', activeColor: 'text-purple-600' },
+  { path: '/expenses', label: 'Expenses', icon: Wallet, color: 'text-rose-500', bg: 'bg-rose-50', activeColor: 'text-rose-600' },
+  { path: '/settings', label: 'Settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50', activeColor: 'text-slate-600' },
 ];
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
@@ -75,16 +75,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                   to={item.path}
                   onClick={() => window.innerWidth < 768 && onClose()}
                   className={({ isActive }) => `
-                    flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300
+                    flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-300 group
                     ${isActive 
-                      ? 'bg-primary-50 text-primary-600 font-bold shadow-sm' 
+                      ? `${item.bg} ${item.activeColor} font-bold shadow-sm` 
                       : 'text-gray-500 font-medium hover:bg-gray-50 hover:text-gray-900'}
                   `}
                 >
                   {({ isActive }) => (
                     <>
-                      {/* @ts-ignore */}
-                      <Icon className="w-6 h-6" variant={isActive ? "Bold" : "Outline"} />
+                      <div className={`p-1.5 rounded-xl transition-all duration-300 group-hover:scale-110 ${isActive ? 'bg-white shadow-sm ' + item.activeColor : 'text-gray-400 group-hover:' + item.bg + ' group-hover:' + item.color}`}>
+                        {/* @ts-ignore */}
+                        <Icon className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" variant={isActive ? "Bold" : "Outline"} />
+                      </div>
                       {item.label}
                     </>
                   )}

@@ -8,6 +8,8 @@ import History from './pages/History';
 import Expenses from './pages/Expenses';
 import { useAuth } from './contexts/AuthContext';
 
+import Settings from './pages/Settings';
+
 // Protected Route Wrapper
 const ProtectedRoute = () => {
   const { user, isLoading } = useAuth();
@@ -48,7 +50,7 @@ function App() {
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/history" element={<History />} />
           <Route path="/expenses" element={<Expenses />} />
-          <Route path="/settings" element={<div className="p-6 bg-white rounded-2xl shadow-sm">Settings coming soon</div>} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
       </Route>
     </Routes>
