@@ -12,12 +12,12 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: Widget, color: 'text-blue-500', bg: 'bg-blue-50', activeColor: 'text-blue-600' },
-  { path: '/sales', label: 'Sales', icon: Cart, color: 'text-emerald-500', bg: 'bg-emerald-50', activeColor: 'text-emerald-600' },
-  { path: '/inventory', label: 'Inventory', icon: Box, color: 'text-orange-500', bg: 'bg-orange-50', activeColor: 'text-orange-600' },
-  { path: '/history', label: 'History', icon: DocumentText, color: 'text-purple-500', bg: 'bg-purple-50', activeColor: 'text-purple-600' },
-  { path: '/expenses', label: 'Expenses', icon: Wallet, color: 'text-rose-500', bg: 'bg-rose-50', activeColor: 'text-rose-600' },
-  { path: '/settings', label: 'Settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50', activeColor: 'text-slate-600' },
+  { path: '/dashboard', label: 'Dashboard', icon: Widget, color: 'text-blue-500', bg: 'bg-blue-50', activeColor: 'text-blue-600', groupHoverText: 'group-hover:text-blue-500', groupHoverBg: 'group-hover:bg-blue-50' },
+  { path: '/sales', label: 'Sales', icon: Cart, color: 'text-emerald-500', bg: 'bg-emerald-50', activeColor: 'text-emerald-600', groupHoverText: 'group-hover:text-emerald-500', groupHoverBg: 'group-hover:bg-emerald-50' },
+  { path: '/inventory', label: 'Inventory', icon: Box, color: 'text-orange-500', bg: 'bg-orange-50', activeColor: 'text-orange-600', groupHoverText: 'group-hover:text-orange-500', groupHoverBg: 'group-hover:bg-orange-50' },
+  { path: '/history', label: 'History', icon: DocumentText, color: 'text-purple-500', bg: 'bg-purple-50', activeColor: 'text-purple-600', groupHoverText: 'group-hover:text-purple-500', groupHoverBg: 'group-hover:bg-purple-50' },
+  { path: '/expenses', label: 'Expenses', icon: Wallet, color: 'text-rose-500', bg: 'bg-rose-50', activeColor: 'text-rose-600', groupHoverText: 'group-hover:text-rose-500', groupHoverBg: 'group-hover:bg-rose-50' },
+  { path: '/settings', label: 'Settings', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-50', activeColor: 'text-slate-600', groupHoverText: 'group-hover:text-slate-500', groupHoverBg: 'group-hover:bg-slate-50' },
 ];
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
@@ -78,12 +78,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-300 group
                     ${isActive 
                       ? `${item.bg} ${item.activeColor} font-bold shadow-sm` 
-                      : 'text-gray-500 font-medium hover:bg-gray-50 hover:text-gray-900'}
+                      : `text-gray-500 font-medium hover:bg-gray-50 ${item.groupHoverText}`}
                   `}
                 >
                   {({ isActive }) => (
                     <>
-                      <div className={`p-1.5 rounded-xl transform transition-transform duration-300 group-hover:scale-125 ${isActive ? 'bg-white shadow-sm ' + item.activeColor : 'text-gray-400 group-hover:' + item.bg + ' group-hover:' + item.color}`}>
+                      <div className={`p-1.5 rounded-xl transform transition-transform duration-300 group-hover:scale-125 ${isActive ? 'bg-white shadow-sm ' + item.activeColor : `text-gray-400 ${item.groupHoverBg} ${item.groupHoverText}`}`}>
                         {/* @ts-ignore */}
                         <Icon className="w-5 h-5" variant={isActive ? "Bold" : "Outline"} />
                       </div>
