@@ -87,7 +87,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         {/* @ts-ignore */}
                         <Icon className="w-5 h-5" variant={isActive ? "Bold" : "Outline"} />
                       </div>
-                      {item.label}
+                      <span className="transform transition-transform duration-300 group-hover:scale-110 origin-left">
+                        {item.label}
+                      </span>
                     </>
                   )}
                 </NavLink>
