@@ -83,9 +83,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 >
                   {({ isActive }) => (
                     <>
-                      <div className={`p-1.5 rounded-xl transition-all duration-300 group-hover:scale-110 ${isActive ? 'bg-white shadow-sm ' + item.activeColor : 'text-gray-400 group-hover:' + item.bg + ' group-hover:' + item.color}`}>
+                      <div className={`p-1.5 rounded-xl transform transition-transform duration-300 group-hover:scale-125 ${isActive ? 'bg-white shadow-sm ' + item.activeColor : 'text-gray-400 group-hover:' + item.bg + ' group-hover:' + item.color}`}>
                         {/* @ts-ignore */}
-                        <Icon className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" variant={isActive ? "Bold" : "Outline"} />
+                        <Icon className="w-5 h-5" variant={isActive ? "Bold" : "Outline"} />
                       </div>
                       {item.label}
                     </>
