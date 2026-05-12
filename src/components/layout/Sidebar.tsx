@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Widget, Cart, Box, Wallet, Settings, CloseCircle, Logout, DocumentText } from '@solar-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
@@ -23,6 +23,7 @@ const navItems = [
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [showToc, setShowToc] = useState(false);
 
   const isDashboard = location.pathname === '/dashboard' || location.pathname === '/';
@@ -69,30 +70,29 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           <nav className="flex-1 px-4 space-y-2">
             {navItems.map((item) => {
               const Icon = item.icon;
+              const isActive = location.pathname === item.path || (item.path === '/dashboard' && location.pathname === '/');
               return (
-                <NavLink
+                <button
                   key={item.path}
-                  to={item.path}
-                  onClick={() => window.innerWidth < 768 && onClose()}
-                  className={({ isActive }) => `
-                    flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-300 group
+                  onClick={() => {
+                    navigate(item.path);
+                    if (window.innerWidth < 768) onClose();
+                  }}
+                  className={`
+                    w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-300 group
                     ${isActive 
                       ? `${item.bg} ${item.activeColor} font-bold shadow-sm` 
                       : `text-gray-500 font-medium hover:bg-gray-50 ${item.groupHoverText}`}
                   `}
                 >
-                  {({ isActive }) => (
-                    <>
-                      <div className={`p-1.5 rounded-xl transform transition-transform duration-300 group-hover:scale-125 ${isActive ? 'bg-white shadow-sm ' + item.activeColor : `text-gray-400 ${item.groupHoverBg} ${item.groupHoverText}`}`}>
-                        {/* @ts-ignore */}
-                        <Icon className="w-5 h-5" variant={isActive ? "Bold" : "Outline"} />
-                      </div>
-                      <span className="transform transition-transform duration-300 group-hover:scale-110 origin-left">
-                        {item.label}
-                      </span>
-                    </>
-                  )}
-                </NavLink>
+                  <div className={`p-1.5 rounded-xl transform transition-transform duration-300 group-hover:scale-125 ${isActive ? 'bg-white shadow-sm ' + item.activeColor : `text-gray-400 ${item.groupHoverBg} ${item.groupHoverText}`}`}>
+                    {/* @ts-ignore */}
+                    <Icon className="w-5 h-5" variant={isActive ? "Bold" : "Outline"} />
+                  </div>
+                  <span className="transform transition-transform duration-300 group-hover:scale-110 origin-left">
+                    {item.label}
+                  </span>
+                </button>
               );
             })}
             {isDashboard && (
